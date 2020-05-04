@@ -1,0 +1,1 @@
+// require ./hawk-component.js
