@@ -1,4 +1,3 @@
-// require ./hawk.js
 
 Hawk.Component = function(classname, options, id) {
     var that = this;

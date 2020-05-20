@@ -77,7 +77,22 @@ Hawk.Component = function(classname, options, id) {
         }
     }
 }
-var Counter = new Hawk.Component('counter', {
+Hawk.ComponentClass = function(classname, options, template) {
+    this.classname = classname;
+    this.template = template;
+    this.options = options;
+    this.instances = {};
+    this.newInstance = function(id, values) {
+        var resultOptions = options.values = values;
+        var instance = new Hawk.Component(this.getClassname(), options, id);
+        instance.run();
+        return instance;
+    }
+    this.getClassname = function() {
+        return this.classname;
+    }
+}
+var Counter = new Hawk.ComponentClass('counter', {
     values: {
         victories: 0,
         defeats: 0
@@ -101,16 +116,33 @@ var Counter = new Hawk.Component('counter', {
         }
     }
 });
-Counter.run();
-$('.counter-button-victory').click(function() {
-    var currentValue = parseInt(Counter.get('victories'));
-    currentValue++;
-    Counter.update('victories', currentValue);
+var MyCounter01 = Counter.newInstance(1, {
+    victories: 0,
+    defeats: 0
 });
-$('.counter-button-defeat').click(function() {
-    var currentValue = parseInt(Counter.get('defeats'));
+var MyCounter02 = Counter.newInstance(2, {
+    victories: 0,
+    defeats: 0
+});
+$('.counter-button-victory-01').click(function() {
+    var currentValue = parseInt(MyCounter01.get('victories'));
     currentValue++;
-    Counter.update('defeats', currentValue);
+    MyCounter01.update('victories', currentValue);
+});
+$('.counter-button-defeat-01').click(function() {
+    var currentValue = parseInt(MyCounter01.get('defeats'));
+    currentValue++;
+    MyCounter01.update('defeats', currentValue);
+});
+$('.counter-button-victory-02').click(function() {
+    var currentValue = parseInt(MyCounter02.get('victories'));
+    currentValue++;
+    MyCounter02.update('victories', currentValue);
+});
+$('.counter-button-defeat-02').click(function() {
+    var currentValue = parseInt(MyCounter02.get('defeats'));
+    currentValue++;
+    MyCounter02.update('defeats', currentValue);
 });
 var Mapper = new Hawk.Component('mapper-item', {
     values: {

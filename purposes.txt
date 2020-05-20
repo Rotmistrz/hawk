@@ -1,0 +1,106 @@
+- praca na "realnym" drzewie dokumentu i wykorzystywanie mocy obliczeniowej procesora do aktualizacji komponentów tylko wtedy, gdy trzeba
+- trzymanie w pamięci jedynie samych danych (rozważam pamiętanie również czegoś w rodzaju szablonów komponentów), ale również możliwość definiowania wyliczanych własności (properties) i metod pracujących na danych komponentu - odnoszę wrażenie, że większość nowych aplikacji internetowych zabiera o wiele więcej pamięci komputera, niż jest to konieczne
+- współpraca z metodyką BEM, której jestem wielkim zwolennikiem
+
+Szanowny Panie Profesorze,
+chciałbym zapytać, czy mógłby Pan zostać opiekunem mojej pracy dyplomowej (magisterskiej), którą zamierzam bronić latem 2021 roku?
+
+Może najpierw napiszę parę słów o mnie, zanim przejdę do celu pracy dyplomowej, bo spodziewam się, że chciałby Pan się czegoś o mnie dowiedzieć (choć miałem już przyjemność mieć z Panem zajęcia na I stopniu), zwłaszcza w tym zwariowanym okresie nauki zdalnej. Jestem programistą z zamiłowania (ale myślę, że mogę już mówić, że także z zawodu), a w przyszłości chciałbym pracować jako projektant/architekt oprogramowania. Jestem miłośnikiem czystego, dobrego kodu i tworzenia własnych rozwiązań, a nie tylko adaptowania cudzych. Bardzo lubię również matematykę samą w sobie, a jednocześnie jestem konserwatystą interesującym się historią, ekonomią, polityką. Grywam w siatkówkę, tenisa (ziemnego i zwłaszcza stołowego), lubię wędrówki (zwłaszcza górskie) i jazdę na rowerze, ale także usiąść wieczorem do ciekawej powieści. Nie wyobrażam sobie pracy czy jazdy samochodem bez dobrej muzyki.
+
+Swoją przygodę z programowaniem zacząłem od pisania prostych stron internetowych i błahych programów konsolowych już pod koniec szkoły podstawowej. Pamiętam dobrze końcówkę czasów IE6 i problemy z przezroczystością w plikach .png tamże... problemy z trybem Quirks w IE i jQuery w połączeniu z czystym JS jako standard na front-endzie. Stąd pojawienie się frameworków JS nie było dla mnie jakimś wielkim przełomem, bo wcześniej większość tego, co oferują, robiłem po prostu pisząc konstruktory i obiekty robiące poszczególne rzeczy w czystym JS i integrując to z backendem..
+
+Natomiast rzeczywiście część operacji dobrze jest usystematyzować i opakować w coś w rodzaju komponentów itp. Jednak w moim odczuciu wszystkie wiodące frameworki/biblioteki - Angular, React jak i Vue - są strasznie toporne w użyciu, a już zwłaszcza w przypadku mniejszych projektów - a przecież niecodziennie tworzy się YouTube'a czy GMaila. Nie tylko ze względu na obszerność kodu, ale także - jak w przypadku Reacta i Vue - przez filozofię działania, czyli pracowanie na "wirtualnym" drzewie dokumentu.
+
+Stąd pomysł zaprojektowania i wdrożenia lekkiej front-endowej biblioteki JavaScript (lub może nawet frameworka) ułatwiającej tworzenie interfejsu użytkownika na stronach internetowych. Coś jak w/w popularne ostatnio narzędzia, ale zdecydowanie lepsze :). Oprócz cech wspólnych, takich jak oparcie o wzorzec MVC czy obsługa wiązań jedno i/lub dwustronnych, chciałbym, aby moje narzędzie wyróżniało kilka - moim zdaniem istotnych, żeby nie powiedzieć: nowatorskich - rozwiązań. Właściwie już zacząłem trochę pracować nad tym w wolnych chwilach. W mojej pracy chciałbym to narzędzie skonfrontować w badaniach z rozwiązaniami istniejącymi.
+
+Jeśli byłby Pan zainteresowany, to oczywiście opiszę ten projekt bardziej szczegółowo.
+
+Z wyrazami szacunku
+Filip J. Markiewicz
+
+
+
+
+
+
+Dziękuję, jest mi bardzo miło!
+
+Wstępny szkic założeń, jakie na ten moment mam, jest taki:
+1) Przede wszystkim chciałbym podejść do silnika (? nie wiem, czy to dobre słowo) inaczej, otóż pracować na "realnym" drzewie dokumentu, a zatem wykorzystywać moc obliczeniową procesora i nie zaśmiecać pamięci niepotrzebnymi informacjami - aktualizować widok wtedy, gdy jest to konieczne; nie trzymać całego widoku w pamięci. Więc przeciwnie do filozofii "wirtualnego" drzewa dokumentu, na której opiera się m.in. React czy Vue; w przypadku Angulara będę musiał dokładniej przyjrzeć się mechanice, ale z tego co wiem, nie jest to w pełni "realny" DOM - tak czy siak jest generowany za pomocą JS dopiero po załadowaniu strony. Ponadto, chciałbym aby u mnie był trochę większy poziom abstrakcji (a jednocześnie mniej rzeczy ładowanych za pomocą JS w momencie ładowania strony, bo oczywiście obsługa asynchronicznego doładowywania elementów podczas działań użytkownika jest konieczna i jak najbardziej dobra), tzn. komponent byłby jedynie abstrakcją na danych, a szablon mógłby być łatwo zmieniany przez utworzenie (wyświetlenie) różnego kodu HTML, na którym JS będzie pracował. Można powiedzieć, że narzędzie nawet nie będzie wiedziało, jaki szablon ma dany komponent. Będzie je tylko interesowało, w jakim miejscu powinno wyświetlać odpowiednie dane, albo z którymi elementami wchodzić w interakcję. Komunikacja będzie odbywała się za pomocą klasy CSS (i ewentualnych atrybutów definiujących konkretny egzemplarz np. data-id).
+
+Dzięki temu nie zaśmiecamy pamięci komputera mnóstwem informacji. JS trzyma jedynie najpotrzebniejsze dane - zarówno proste pola, jak i dane wyliczane na podstawie tych prostych danych (własności), a także dowolnie definiowane wstrzykiwane metody, które pracują na danych przechowywanych przez komponent (i są wywoływane przy każdej aktualizacji którejś danej). Choć zastanawiam się jeszcze nad możliwością definiowania szablonów na poziomie JS. Muszę to jeszcze przemyśleć.
+
+2) Tak czy inaczej chciałbym, aby praca z drzewem dokumentu odbywała się w zgodzie z metodyką BEM, której jestem zwolennikiem, i którą uważam też za pewien kamień milowy w pisaniu dobrego kodu HTML/CSS. A zatem komponent byłby wedle tej metodyki blokiem, a każda wartość (prosta lub własność) byłaby ładowana do elementu (w sensie BEM) o odpowiadającej jej nazwie.
+
+Np. jeśli mielibyśmy komponent Employee, to w HTMLu odzwierciedlałby go węzeł <article class="employee" />. Powiedzmy, że komponent ten ma pola name, profession, birth-date oraz własność age. Wszystkie te dane mogłyby zostać wyświetlone w elementach bloku "employee", czyli odpowiednio (załóżmy, że wszystkie dla uproszczenia zdefiniujemy jako znaczniki <div>): <div class="employee__name" />, <div class="employee__profession" />, <div class="employee__birth-date" /> i <div class="employee__age" />. Proszę zwrócić uwagę, że age byłoby własnością wyliczaną na podstawie birth-date oraz aktualnej daty systemowej.
+
+3) W związku z pkt. 2 przydałoby się stworzyć warstwę abstrakcji nad drzewem DOM (i nad funkcjami document.querySelector i document.querySelectorAll) zgodną z metodyką BEM do łatwiejszego przemierzania węzłów (takie jQuery dla drzewa BEM; w pewnej świetnej książce o JS autor pokazywał tworzenie zaawansowanego projektu JS właśnie na podstawie tworzenia takiego narzędzia [1]). Możliwe, że początkowo skorzystam z siły jQuery do tego celu opakowując to we własny interfejs operujący na BEM, który później być może będzie można jakoś zoptymalizować i wymienić definicje metod korzystające z jQuery na kod operujący bezpośrednio na w/w natywnych funkcjach JS.
+4) Tak jak wspomniałem w poprzednim mailu, projekt ten obsługiwałby także wiązania danych (dwu- i jednostronne w zależności od tego, których będzie potrzebował programista), czyli powiązanie komponentu z inputem, który synchronizuje się z modelem (a z kolei model jest zsynchronizowany z widokiem, bo dany komponent może być wyświetlany w wielu miejscach na stronie jednocześnie) już w momencie pisania w nim (i odwrotnie - w przypadku zmiany modelu, zmienia się zawartość powiązanego inputa).
+5) Jeśli udałoby się to rozwinąć do statusu frameworka, to spróbuję dorobić wtedy takie najpotrzebniejsze rzeczy jak routing, narzędzie do żądań AJAX itp.
+
+Jeśli zaś chodzi o badania, to na tę chwilę wydaje mi się, że najciekawsze mogą być badania wydajnościowe (przy dużej ilości danych) -> zarówno szybkości działania jak i ilości zajmowanej przez aplikację opartą na danym rozwiązaniu pamięci RAM komputera.
+
+Co Pan o tym myśli?
+
+Jeśli chciałby Pan zobaczyć szczątkowy kod, jaki do tej pory napisałem, to proszę mi podać Pana identyfikator w serwisie Github, to udostępnię Panu moje repozytorium.
+
+Mam nadzieję, że nie wplotłem zbyt wielu skrótów myślowych i powyższy opis jest zrozumiały :).
+
+Z wyrazami szacunku
+Filip J. Markiewicz
+
+[1] Tomasz "Comandeer" Jakut, "JavaScript. Programowanie zaawansowane", Helion 2016 (https://helion.pl/ksiazki/javascript-programowanie-zaawansowane-tomasz-comandeer-jakut,jascpz.htm#format/e)
+
+
+
+----- oryginalna wiadomość -----
+od: Lech Madeyski <Lech.Madeyski@pwr.edu.pl>
+data: wtorek, maj 5, 2020 7:45
+temat: Re: Praca magisterska - lekka biblioteka/framework JS do tworzenia interfejsu użytkownika na stronach internetowych
+do: Filip Jedrzej Markiewicz <225962@student.pwr.edu.pl>
+
+> Dzień dobry,
+> 
+> Jestem zainteresowany.
+> 
+> Proszę opisać plan bardziej szczegółowo. Będziemy też musieli 
+> zastanowić się jak wiarygodnie skonfrontować rozwiazanie z już 
+> istniejącymi. Wtedy mielibyśmy kompletną całość: przegląd 
+> istniejących rozwiązań, propozycja nowego rozwiązania, ewaluacja 
+> na tle istniejących rozwiązań.
+> 
+> Pozdrawiam Lech Madeyski
+> 
+> On 05/05/2020 02:54, Filip Jedrzej Markiewicz wrote:
+> >Szanowny Panie Profesorze,
+> >chciałbym zapytać, czy mógłby Pan zostać opiekunem mojej pracy 
+> dyplomowej (magisterskiej), którą zamierzam bronić latem 2021 roku?
+> >
+> >Zajmuję się w głównej mierze (zarówno z zamiłowania jak i w 
+> pracy) stronami i aplikacjami internetowymi. Dlatego chciałbym 
+> stworzyć lekką front-endową bibliotekę JavaScript (lub może 
+> nawet framework) ułatwiającą tworzenie interfejsu użytkownika na 
+> stronach internetowych. Coś takiego jak popularne ostatnio 
+> narzędzia - Angular, React czy Vue - ale zdecydowanie lepsze :). 
+> W moim odczuciu wszystkie te w/w narzędzia są strasznie toporne 
+> w użyciu, a już zwłaszcza w przypadku mniejszych projektów - a 
+> przecież nie codziennie tworzy się YouTube'a czy GMaila. Nie 
+> tylko ze względu na obszerność kodu, ale także - jak w przypadku 
+> Reacta i Vue - przez filozofię działania, czyli pracowanie na 
+> "wirtualnym" drzewie dokumentu.
+> >
+> >
+> >Oprócz cech wspólnych, takich jak oparcie o wzorzec MVC czy 
+> obsługa wiązań jedno i/lub dwustronnych, chciałbym, aby mój 
+> projekt wyróżniało kilka - moim zdaniem istotnych, żeby nie 
+> powiedzieć: nowatorskich - rozwiązań. Właściwie już zacząłem 
+> trochę pracować nad tym w wolnych chwilach. W pracy dyplomowej 
+> oprócz opisu samej biblioteki chciałbym to narzędzie 
+> skonfrontować z rozwiązaniami istniejącymi.
+> >
+> >Jeśli byłby Pan zainteresowany, to z przyjemnością opiszę plan 
+> tego projektu bardziej szczegółowo.
+> >
+> >Z wyrazami szacunku
+> >Filip J. Markiewicz 
+>
