@@ -49,7 +49,7 @@ Hawk.Component = function(classname, options, id) {
     }
 
     this.updateBinded = function(key, value) {
-        if (typeof this.bindings[key] != 'undfined') {
+        if (typeof this.bindings[key] !== 'undefined') {
             this.bindings[key].val(value);
         }
     }
@@ -60,8 +60,16 @@ Hawk.Component = function(classname, options, id) {
         return property(this);
     }
 
+    this.getContainer = function() {
+        if (this.id > 0) {
+            return $('.' + this.getClassname() + '[data-component-id="' + this.getID() + '"]');
+        } else {
+            return $('.' + this.getClassname());
+        }
+    }
+
     this.getElement = function(name) {
-        return this.container.find('.' + this.getClassname() + '__' + name);
+        return this.getContainer().find('.' + this.getClassname() + '__' + name);
     }
 
     this.refreshView = function() {
@@ -87,13 +95,11 @@ Hawk.Component = function(classname, options, id) {
     this.run = function() {
         var allComponentBindings = {};
 
-        if (this.id > 0) {
-            this.container = $('.' + this.getClassname() + '[data-component-id="' + this.getID() + '"]');
+        this.container = this.getContainer();
 
+        if (this.id > 0) {
             allComponentBindings = $('[data-component-bind="' + this.getClassname() + '.' + this.getID() + '"]');
         } else {
-            this.container = $('.' + this.getClassname());
-
             allComponentBindings = $('[data-component-bind="' + this.getClassname() + '"]');
         }
 
