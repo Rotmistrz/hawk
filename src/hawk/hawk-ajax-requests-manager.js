@@ -8,7 +8,7 @@ Hawk.AjaxRequestsManager = function(options) {
     const that = this;
 
     this.ajaxRequest;
-    this.ajaxRequestWorking = false;
+    //this.ajaxRequestWorking = false;
 
     this.defaultOptions = {
         onSuccess: function() {},
@@ -27,9 +27,9 @@ Hawk.AjaxRequestsManager = function(options) {
     }
 
     this.sendRequest = function(path, type, bundle, callbacks) {
-        if (this.ajaxRequestWorking) {
-            return false;
-        }
+        // if (this.ajaxRequestWorking) {
+        //     return false;
+        // }
 
         this.ajaxRequestWorking = true;
 

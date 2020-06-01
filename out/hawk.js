@@ -8,6 +8,9 @@ Hawk = {
 Hawk.Constants = {
     COMPONENT_ID_ATTRIBUTE: "data-component-id"
 };
+const Routes = {
+    TEAM: '/team/([0-9]+)'
+};
 Hawk.Validator = {};
 Hawk.Validator.isEmail = function(email) {
     if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
@@ -1744,6 +1747,73 @@ Hawk.FormSender = function(element, fields, options) {
         });
     }
 }
+Hawk.getLocation = function() {
+    return window.location;
+}
+Hawk.getPath = function() {
+    return Hawk.getLocation().pathname;
+}
+Hawk.Routes = {
+    routes: {},
+    path: Hawk.getPath(),
+    regexp: new RegExp(""),
+    pathRegexp: new RegExp(this.path),
+    getPath: function() {
+        return this.path;
+    },
+    /**routeExists: function(routeName) {
+        return (typeof this.routes[routeName] != 'undefined');
+    },
+
+    getRoute: function(routeName) {
+        if (this.routeExists(routeName)) {
+            return this.routes[routeName];
+        } else {
+            return null;
+        }
+    },
+
+    registerRoute: function(name, path) {
+        this.routes[name] = path;
+    },**/
+    is: function(route) {
+        this.regexp = new RegExp(route);
+        return this.regexp.test(this.getPath());
+    },
+    contains: function(parameterName) {
+        var regexp = new RegExp('/' + parameterName + '/');
+        var endRegexp = new RegExp('/' + parameterName + '$');
+        return regexp.test(this.getPath()) || endRegexp.test(this.getPath());
+    },
+    getParameterValue: function(parameterString) {
+        var parts = parameterString.split('/');
+        if (parts.length > 2) {
+            return parts[2];
+        } else {
+            return null;
+        }
+    },
+    get: function(parameterName) {
+        if (this.contains(parameterName)) {
+            var pattern = '/' + parameterName + '/([0-9a-zA-Z\-]+)';
+            var regexp = new RegExp(pattern + '/');
+            var endRegexp = new RegExp(pattern + '$');
+            var results = regexp.exec(this.getPath());
+            if (results != null) {
+                return this.getParameterValue(results[0]);
+            } else {
+                results = endRegexp.exec(this.getPath());
+                if (results != null) {
+                    return this.getParameterValue(results[0]);
+                } else {
+                    return null;
+                }
+            }
+        } else {
+            return null;
+        }
+    }
+}
 Hawk.refresh = function() {
     this.w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
     this.h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeigh;
@@ -1766,10 +1836,10 @@ Hawk.run = function() {
     });
     return this;
 }
-Hawk.Component = function(classname, options, id) {
+Hawk.Component = function(classname, values, options, id) {
     var that = this;
     this.classname = classname;
-    this.values = options.values || {};
+    this.values = values;
     this.properties = options.properties || {};
     this.methods = options.methods || {};
     this.bindingsDeclarations = options.bindingsDeclarations || [];
@@ -1850,16 +1920,28 @@ Hawk.Component = function(classname, options, id) {
         }
     }
 }
-Hawk.ComponentClass = function(classname, options, parseJSON) {
+Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     const that = this;
     this.classname = classname;
+    this.values = values;
     this.options = options;
     this.parseJSON = parseJSON || function(json) {};
     this.instances = [];
-    this.newInstance = function(id) {
+    this.getOptions = function() {
+        return this.options;
+    }
+    this.getValues = function() {
+        return this.values;
+    }
+    this.newInstance = function(id, values) {
         if (!this.instanceExists(id)) {
-            const instance = new Hawk.Component(this.getClassname(), options, id);
+            let certainValues = this.getValues();
+            if (typeof values != 'undefined') {
+                certainValues = this.parseValues(values);
+            }
+            const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
             instance.run();
+            instance.refreshView();
             this.instances[instance.getID()] = instance;
             return instance;
         } else {
@@ -1869,6 +1951,15 @@ Hawk.ComponentClass = function(classname, options, parseJSON) {
     this.instanceExists = function(index) {
         return typeof this.instances[index] != 'undefined';
     }
+    this.parseValues = function(certainValues) {
+        const resultValues = {};
+        for (let i in this.values) {
+            if (typeof certainValues[i] != 'undefined') {
+                resultValues[i] = certainValues[i];
+            }
+        }
+        return certainValues;
+    }
     this.getInstance = function(index) {
         if (this.instanceExists(index)) {
             return this.instances[index];
@@ -1877,8 +1968,13 @@ Hawk.ComponentClass = function(classname, options, parseJSON) {
         }
     }
     this.createFromJSON = function(json) {
-        const id = this.parseJSON(json);
-        return this.newInstance(id);
+        const fields = this.parseJSON(json);
+        if (typeof fields.id != 'undefined') {
+            const values = this.parseValues(fields);
+            return this.newInstance(fields.id, values);
+        } else {
+            return null;
+        }
     }
     this.getClassname = function() {
         return this.classname;
@@ -1901,7 +1997,7 @@ Hawk.AjaxRequestType = {
 Hawk.AjaxRequestsManager = function(options) {
     const that = this;
     this.ajaxRequest;
-    this.ajaxRequestWorking = false;
+    //this.ajaxRequestWorking = false;
     this.defaultOptions = {
         onSuccess: function() {},
         onError: function() {},
@@ -1915,9 +2011,9 @@ Hawk.AjaxRequestsManager = function(options) {
         this.sendRequest(path, Hawk.AjaxRequestType.GET, {}, callbacks);
     }
     this.sendRequest = function(path, type, bundle, callbacks) {
-        if (this.ajaxRequestWorking) {
-            return false;
-        }
+        // if (this.ajaxRequestWorking) {
+        //     return false;
+        // }
         this.ajaxRequestWorking = true;
         const onSuccess = callbacks.onSuccess || function() {};
         const onFailure = callbacks.onFailure || this.options.onFailure;
@@ -1951,7 +2047,7 @@ Hawk.AjaxRequestsManager = function(options) {
 }
 Hawk.ComponentsManager = function() {
     this.requestsManager = new Hawk.AjaxRequestsManager();
-    this.loadComponents = function(path, componentClass, wrapperClass) {
+    this.loadComponents = function(path, componentClass, wrapperClass, callback) {
         this.requestsManager.get(path, {
             onSuccess: function(result) {
                 $('.' + wrapperClass).html(result.html);
@@ -1959,9 +2055,15 @@ Hawk.ComponentsManager = function() {
                 for (let i in result.bundle) {
                     console.log(componentClass.createFromJSON(result.bundle[i]));
                 }
+                if (typeof callback == 'function') {
+                    callback();
+                }
             },
             onFailure: function(result) {
                 console.error("A problem during loading components...");
+            },
+            onError: function(result) {
+                console.error("An ERROR during loading components...");
             }
         });
     }
@@ -1992,26 +2094,61 @@ var Counter = new Hawk.ComponentClass('counter', {
 });
 Counter.initialize();
 const Team = new Hawk.ComponentClass('team', {
+    name: ""
+}, {}, function(json) {
+    return {
+        id: json.id,
+        name: json.name
+    };
+});
+const someOptions = {
     values: {
-        name: ""
+        date: "",
+        'host-name': "",
+        'guest-name': "",
+        'host-result': 0,
+        'guest-result': 0
+    },
+    properties: {
+        result: function(component) {
+            return component.get('host-result') + ":" + component.get('guest-result');
+        }
+    }
+};
+const clonedOptions = Object.assign({}, someOptions);
+console.log(clonedOptions);
+const Match = new Hawk.ComponentClass('match', {
+    date: "",
+    'host-name': "",
+    'guest-name': "",
+    'host-result': 0,
+    'guest-result': 0
+}, {
+    properties: {
+        result: function(component) {
+            return component.get('host-result') + ":" + component.get('guest-result');
+        }
     }
 }, function(json) {
-    return json['id'];
+    return {
+        id: json.id,
+        date: json.date,
+        'host-name': json.host.name,
+        'guest-name': json.guest.name,
+        'host-result': json.hostResult,
+        'guest-result': json.guestResult
+    };
 });
 const AppComponentManager = new Hawk.ComponentsManager();
+if (Hawk.Routes.is(Routes.TEAM)) {
+    const currentTeamID = Hawk.Routes.get('team');
+    console.log(currentTeamID);
+    AppComponentManager.loadComponents('/matches/get/' + currentTeamID, Match, 'match-components');
+} else {
+    console.log("Dashboard");
+}
 AppComponentManager.loadComponents('/teams/get', Team, 'team-components');
-setTimeout(function() {
-    let wantedInstances = [1, 2, 9, 11];
-    let unexistingInstances = [3, 4, 5];
-    for (let i in wantedInstances) {
-        console.log("Instance #" + wantedInstances[i]);
-        console.log(Team.instanceExists(wantedInstances[i]));
-    }
-    for (let i in unexistingInstances) {
-        console.log("Instance #" + unexistingInstances[i]);
-        console.log(Team.instanceExists(unexistingInstances[i]));
-    }
-}, 5000);
+AppComponentManager.loadComponents('/enemy-teams/get', Team, 'enemy-team-components');
 /**var MyCounter01 = Counter.newInstance(1);
 
 var MyCounter02 = Counter.newInstance(2);

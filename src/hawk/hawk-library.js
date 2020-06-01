@@ -2194,6 +2194,91 @@ Hawk.FormSender = function(element, fields, options) {
     }
 }
 
+
+Hawk.getLocation = function() {
+    return window.location;
+}
+
+Hawk.getPath = function() {
+    return Hawk.getLocation().pathname;
+}
+
+Hawk.Routes = {
+    routes: {},
+
+    path: Hawk.getPath(),
+    regexp: new RegExp(""),
+    pathRegexp: new RegExp(this.path),
+
+    getPath: function() {
+        return this.path;
+    },
+
+    /**routeExists: function(routeName) {
+        return (typeof this.routes[routeName] != 'undefined');
+    },
+
+    getRoute: function(routeName) {
+        if (this.routeExists(routeName)) {
+            return this.routes[routeName];
+        } else {
+            return null;
+        }
+    },
+
+    registerRoute: function(name, path) {
+        this.routes[name] = path;
+    },**/
+
+    is: function(route) {
+      this.regexp = new RegExp(route);
+
+      return this.regexp.test(this.getPath());
+    },
+
+    contains: function(parameterName) {
+        var regexp = new RegExp('/' + parameterName + '/');
+        var endRegexp = new RegExp('/' + parameterName + '$');
+
+        return regexp.test(this.getPath()) || endRegexp.test(this.getPath());
+    },
+
+    getParameterValue: function(parameterString) {
+        var parts = parameterString.split('/');
+
+        if (parts.length > 2) {
+            return parts[2];
+        } else {
+            return null;
+        }
+    },
+
+    get: function(parameterName) {
+        if (this.contains(parameterName)) {
+            var pattern = '/' + parameterName + '/([0-9a-zA-Z\-]+)';
+
+            var regexp = new RegExp(pattern + '/');
+            var endRegexp = new RegExp(pattern + '$');
+
+            var results = regexp.exec(this.getPath());
+
+            if (results != null) {
+                return this.getParameterValue(results[0]);
+            } else {
+                results = endRegexp.exec(this.getPath());
+
+                if (results != null) {
+                    return this.getParameterValue(results[0]);
+                } else {
+                    return null;
+                }
+            }
+        } else {
+            return null;
+        }
+    }
+}
+
 Hawk.refresh = function() {
     this.w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
     this.h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeigh;

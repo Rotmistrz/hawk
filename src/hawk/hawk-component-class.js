@@ -1,19 +1,35 @@
 
-Hawk.ComponentClass = function(classname, options, parseJSON) {
+Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     const that = this;
 
     this.classname = classname;
 
+    this.values = values;
     this.options = options;
 
     this.parseJSON = parseJSON || function(json) {};
 
     this.instances = [];
 
-    this.newInstance = function(id) {
+    this.getOptions = function() {
+        return this.options;
+    }
+
+    this.getValues = function() {
+        return this.values;
+    }
+
+    this.newInstance = function(id, values) {
         if (!this.instanceExists(id)) {
-            const instance = new Hawk.Component(this.getClassname(), options, id);
+            let certainValues = this.getValues();
+
+            if (typeof values != 'undefined') {
+                certainValues = this.parseValues(values);
+            }
+            
+            const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
             instance.run();
+            instance.refreshView();
 
             this.instances[instance.getID()] = instance;
 
@@ -27,6 +43,18 @@ Hawk.ComponentClass = function(classname, options, parseJSON) {
         return typeof this.instances[index] != 'undefined';
     }
 
+    this.parseValues = function(certainValues) {
+        const resultValues = {};
+
+        for (let i in this.values) {
+            if (typeof certainValues[i] != 'undefined') {
+                resultValues[i] = certainValues[i];
+            }
+        }
+
+        return certainValues;
+    }
+
     this.getInstance = function(index) {
         if (this.instanceExists(index)) {
             return this.instances[index];
@@ -36,9 +64,15 @@ Hawk.ComponentClass = function(classname, options, parseJSON) {
     }
 
     this.createFromJSON = function(json) {
-        const id = this.parseJSON(json);
+        const fields = this.parseJSON(json);
 
-        return this.newInstance(id);
+        if (typeof fields.id != 'undefined') {
+            const values = this.parseValues(fields);
+
+            return this.newInstance(fields.id, values);
+        } else {
+            return null;
+        }
     }
 
     this.getClassname = function() {

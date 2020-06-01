@@ -1,10 +1,10 @@
 
-Hawk.Component = function(classname, options, id) {
+Hawk.Component = function(classname, values, options, id) {
     var that = this;
 
     this.classname = classname;
 
-    this.values = options.values || {};
+    this.values = values;
     this.properties = options.properties || {};
     this.methods = options.methods || {};
     this.bindingsDeclarations = options.bindingsDeclarations || [];
