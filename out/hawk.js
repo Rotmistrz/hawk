@@ -8,9 +8,6 @@ Hawk = {
 Hawk.Constants = {
     COMPONENT_ID_ATTRIBUTE: "data-component-id"
 };
-const Routes = {
-    TEAM: '/team/([0-9]+)'
-};
 Hawk.Validator = {};
 Hawk.Validator.isEmail = function(email) {
     if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
@@ -1753,13 +1750,70 @@ Hawk.getLocation = function() {
 Hawk.getPath = function() {
     return Hawk.getLocation().pathname;
 }
+Hawk.checkRoute = function(route, path) {
+    const pathParts = path.split('/');
+    console.log(pathParts);
+    console.log(route.toString().replace("\\", ""));
+    const routeParts = route.toString().replace("\\", "").split('/');
+    console.log(routeParts);
+    let regex;
+    if (route == "/") {
+        return route == path;
+    } else {
+        for (let i in routeParts) {
+            if (typeof pathParts[i] != 'undefined') {
+                regex = new RegExp(routeParts[i]);
+                if (!regex.test(pathParts[i])) {
+                    console.log("FALSEEEEEE");
+                    return false;
+                }
+                console.log("Póki co git");
+            } else {
+                console.log("FALSE");
+                return false;
+            }
+        }
+        return true;
+    }
+}
+Hawk.LayeredBox = function(container, options) {
+    var that = this;
+    this.container = $(container);
+    this.defaultOptions = {
+        buttonClass: 'layered-box-button',
+        closeClass: 'layered-box__layer-close',
+        layerClass: 'layered-box__layer',
+        onLoading: function(box) {}
+    };
+    this.options = Hawk.mergeObjects(this.defaultOptions, options);
+    this.buttons = this.container.find('.' + this.options.buttonClass);
+    this.layer = this.container.find('.' + this.options.layerClass);
+    this.close = this.container.find('.' + this.options.closeClass);
+    this.loadLayer = function() {}
+    this.run = function() {
+        this.buttons.click(function() {
+            that.layer.velocity("fadeIn", {
+                duration: 200
+            });
+            if (typeof that.options.onLoading != 'undefined') {
+                that.options.onLoading(that);
+            }
+        });
+        this.close.click(function() {
+            that.layer.velocity("fadeOut", {
+                duration: 200
+            });
+        });
+    }
+}
 Hawk.Routes = {
     routes: {},
     path: Hawk.getPath(),
     regexp: new RegExp(""),
     pathRegexp: new RegExp(this.path),
     getPath: function() {
-        return this.path;
+        console.log("GET PATH", window.location.pathname);
+        return window.location.pathname;
     },
     /**routeExists: function(routeName) {
         return (typeof this.routes[routeName] != 'undefined');
@@ -1901,6 +1955,14 @@ Hawk.Component = function(classname, values, options, id) {
             this.methods[i](this);
         }
     }
+    this.remove = function() {
+        const container = this.getContainer();
+        container.velocity("slideUp", {
+            complete: function() {
+                container.remove();
+            }
+        });
+    }
     this.run = function() {
         var allComponentBindings = {};
         this.container = this.getContainer();
@@ -1965,6 +2027,12 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
             return this.instances[index];
         } else {
             return null;
+        }
+    }
+    this.removeInstance = function(index) {
+        if (this.instanceExists(index)) {
+            const current = this.instances[index];
+            current.remove();
         }
     }
     this.createFromJSON = function(json) {
@@ -2045,18 +2113,77 @@ Hawk.AjaxRequestsManager = function(options) {
     }
     this.run = function() {}
 }
-Hawk.ComponentsManager = function() {
+Hawk.AjaxRequestsController = function() {
+    this.requestLinks;
+    this.operations = {};
+    this.registerOperation = function(options) {
+        this.operations[options.name] = options;
+        return this;
+    };
+    this.sendRequest = function(generalData, moduleData) {
+        var that = this;
+        var data = Hawk.mergeWholeObjects(generalData, moduleData);
+        console.log(data);
+        $.ajax({
+            type: "POST",
+            //url: "/ajax.php",
+            url: '/ajax/request',
+            dataType: "json",
+            data: data,
+            success: function(result) {
+                console.log(result);
+                that.operations[result.operation].callback(result);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR.responseText);
+            },
+            complete: function() {
+                //spinner.hide();
+            }
+        });
+        return this;
+    }
+    this.refreshDependencies = function() {
+        var that = this;
+        this.requestLinks = $('.ajax-request-button');
+        this.requestLinks.unbind('click').click(function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var operation = $(this).attr('data-operation');
+            var data = that.operations[operation].collectData($(this));
+            that.sendRequest({
+                operation: operation
+            }, data);
+        });
+    }
+    this.run = function() {
+        this.refreshDependencies();
+    }
+}
+Hawk.ComponentsManager = function(classComponent, wrapperClass) {
+    const that = this;
+    this.classComponent = classComponent;
+    this.wrapperClass = wrapperClass;
+    this.getClassComponent = function() {
+        return this.classComponent;
+    }
+    this.getWrapper = function() {
+        return $('.' + this.wrapperClass);
+    }
     this.requestsManager = new Hawk.AjaxRequestsManager();
-    this.loadComponents = function(path, componentClass, wrapperClass, callback) {
+    this.loadComponents = function(path, callback, generalCallback) {
         this.requestsManager.get(path, {
             onSuccess: function(result) {
-                $('.' + wrapperClass).html(result.html);
+                that.getWrapper().html(result.html);
                 let current;
                 for (let i in result.bundle) {
-                    console.log(componentClass.createFromJSON(result.bundle[i]));
+                    current = that.classComponent.createFromJSON(result.bundle[i]);
+                    if (typeof callback == 'function') {
+                        callback(current);
+                    }
                 }
-                if (typeof callback == 'function') {
-                    callback();
+                if (typeof generalCallback == 'function') {
+                    generalCallback();
                 }
             },
             onFailure: function(result) {
@@ -2067,57 +2194,191 @@ Hawk.ComponentsManager = function() {
             }
         });
     }
+    this.addComponent = function(html, json, callback) {
+        const content = $(html);
+        this.getWrapper().append(html);
+        current = that.classComponent.createFromJSON(json);
+        if (typeof callback == 'function') {
+            callback(current);
+        }
+    }
 }
-var Counter = new Hawk.ComponentClass('counter', {
-    values: {
-        victories: 0,
-        defeats: 0
-    },
-    properties: {
-        percentageVictories: function(component) {
-            return component.get('victories') / (component.get('victories') + component.get('defeats'));
+Hawk.ContentsManager = function(wrapperClass) {
+    const that = this;
+    this.wrapperClass = wrapperClass;
+    this.requestsManager = new Hawk.AjaxRequestsManager();
+    this.getWrapper = function() {
+        return $('.' + this.wrapperClass);
+    }
+    this.changeContent = function(content) {
+        that.getWrapper().html(content);
+    }
+    this.load = function(path, callback) {
+        this.requestsManager.get(path, {
+            onSuccess: function(result) {
+                that.changeContent(result.html);
+                if (typeof callback == 'function') {
+                    callback();
+                }
+            },
+            onFailure: function(result) {
+                console.error("A problem during loading contents...");
+            },
+            onError: function(result) {
+                console.error("An ERROR during loading contents...");
+            }
+        });
+    }
+}
+Hawk.PagesManager = function(routes, wrapperClass) {
+    const that = this;
+    this.routes = routes;
+    this.wrapperClass = wrapperClass;
+    this.requestsManager = new Hawk.AjaxRequestsManager();
+    this.getWrapper = function() {
+        return $('.' + this.wrapperClass);
+    }
+    this.changeContent = function(content) {
+        that.getWrapper().html(content);
+    }
+    this.changePath = function(path) {
+        window.history.pushState({
+            page: path
+        }, '', path);
+    }
+    this.load = function(path, callback) {
+        this.requestsManager.get(path, {
+            onSuccess: function(result) {
+                that.changeContent(result.html);
+                window.history.pushState({
+                    page: path
+                }, '', path);
+                if (typeof callback == 'function') {
+                    callback();
+                }
+            },
+            onFailure: function(result) {
+                console.error("A problem during loading contents...");
+            },
+            onError: function(result) {
+                console.error("An ERROR during loading contents...");
+            }
+        });
+    }
+    this.getDestination = function(link) {
+        return $(link).attr('href');
+    }
+    this.loading = function(e) {
+        const destination = that.getDestination($(this));
+        e.preventDefault();
+        let route;
+        for (let i in that.routes) {
+            route = that.routes[i];
+            console.log(route);
+            if (Hawk.checkRoute(route.path, destination)) {
+                e.preventDefault();
+                that.load(destination, route.callback);
+                //that.changePath(destination);
+                console.log("THIS IS APP ROUTE");
+                return;
+            }
+        }
+        console.log("It's not an app route");
+        return;
+    }
+    this.refreshDependencies = function() {
+        $('a').off('click', this.loading).on('click', this.loading);
+        return this;
+    }
+    this.run = function(destination) {
+        this.refreshDependencies();
+        let route;
+        for (let i in that.routes) {
+            route = that.routes[i];
+            if (Hawk.checkRoute(route.path, destination)) {
+                route.callback();
+                console.log("THIS IS APP ROUTE");
+            }
+        }
+    }
+}
+const Routes = {
+    MATCH: {
+        path: '/team/([0-9]+)/match/([0-9]+)',
+        callback: function() {
+            const currentTeamID = Hawk.Routes.get('team');
+            const currentMatchID = Hawk.Routes.get('match');
+            AppComponentManagers.Player.loadComponents('/get-players/team/' + currentTeamID + '/match/' + currentMatchID, function() {}, function() {
+                $('.layered-box').each(function() {
+                    var dropdownContainer = $(this).find('.dropdown-menu');
+                    var dropdown = new Hawk.Dropdown(dropdownContainer, {
+                        onShow: function(dropdown) {
+                            dropdown.container.find('.icon-hamburger').addClass('open').addClass('icon-hamburger--light');
+                        },
+                        onHide: function(dropdown) {
+                            dropdown.container.find('.icon-hamburger').removeClass('open').removeClass('icon-hamburger--light');
+                        }
+                    });
+                    dropdown.run();
+                    var current = new Hawk.LayeredBox($(this), {
+                        onLoading: function(box) {
+                            dropdown.hide();
+                        }
+                    });
+                    current.run();
+                });
+                AppAjaxRequestsController.refreshDependencies();
+            });
+            const setsDropdownContainer = $('#sets-dropdown');
+            if (setsDropdownContainer.length) {
+                const setsDropdown = new Hawk.Dropdown(setsDropdownContainer, {
+                    mode: Hawk.DropdownConstants.modes.CHOOSABLE
+                });
+                setsDropdown.run();
+            }
         }
     },
-    methods: {
-        calculateProgress: function(component) {
-            var progress = component.getElement('progress');
-            progress.css({
-                width: (parseFloat(component.getProperty('percentageVictories')) * 100) + "%"
+    TEAM: {
+        path: '/team/([0-9]+)',
+        callback: function() {
+            const currentTeamID = Hawk.Routes.get('team');
+            console.log(currentTeamID);
+            AppComponentManagers.Match.loadComponents('/matches/get/' + currentTeamID, function() {
+                AppAjaxRequestsController.refreshDependencies();
+                AppPagesManager.refreshDependencies();
             });
         }
     },
-    onRefresh: function(key, value, component) {
-        if (key == 'victories') {
-            console.log('victory', value);
-        }
-    }
-});
-Counter.initialize();
-const Team = new Hawk.ComponentClass('team', {
-    name: ""
-}, {}, function(json) {
-    return {
-        id: json.id,
-        name: json.name
-    };
-});
-const someOptions = {
-    values: {
-        date: "",
-        'host-name': "",
-        'guest-name': "",
-        'host-result': 0,
-        'guest-result': 0
-    },
-    properties: {
-        result: function(component) {
-            return component.get('host-result') + ":" + component.get('guest-result');
+    MAIN: {
+        path: '/',
+        callback: function() {
+            AppComponentManagers.Team.loadComponents('/teams/get', function(team) {
+                const players = team.get('players');
+                for (let i in players) {
+                    AppComponents.Player.createFromJSON(players[i]);
+                }
+                AppAjaxRequestsController.refreshDependencies();
+                AppPagesManager.refreshDependencies();
+            });
+            AppComponentManagers.EnemyTeam.loadComponents('/enemy-teams/get', function() {
+                AppAjaxRequestsController.refreshDependencies();
+                AppPagesManager.refreshDependencies();
+            });
         }
     }
 };
-const clonedOptions = Object.assign({}, someOptions);
-console.log(clonedOptions);
-const Match = new Hawk.ComponentClass('match', {
+const AppComponents = {};
+AppComponents.Team = new Hawk.ComponentClass('team', {
+    name: "",
+    players: []
+}, {}, function(json) {
+    return {
+        id: json.id,
+        name: json.name,
+        players: json.players
+    };
+});
+AppComponents.Match = new Hawk.ComponentClass('match', {
     date: "",
     'host-name': "",
     'guest-name': "",
@@ -2139,16 +2400,26 @@ const Match = new Hawk.ComponentClass('match', {
         'guest-result': json.guestResult
     };
 });
-const AppComponentManager = new Hawk.ComponentsManager();
-if (Hawk.Routes.is(Routes.TEAM)) {
-    const currentTeamID = Hawk.Routes.get('team');
-    console.log(currentTeamID);
-    AppComponentManager.loadComponents('/matches/get/' + currentTeamID, Match, 'match-components');
-} else {
-    console.log("Dashboard");
-}
-AppComponentManager.loadComponents('/teams/get', Team, 'team-components');
-AppComponentManager.loadComponents('/enemy-teams/get', Team, 'enemy-team-components');
+AppComponents.Player = new Hawk.ComponentClass('player', {
+    name: "",
+    surname: "",
+    'position-name': ""
+}, {}, function(json) {
+    return {
+        id: json.id,
+        name: json.name,
+        surname: json.surname,
+        'position-name': json.positionName
+    };
+});
+const AppComponentManagers = {};
+AppComponentManagers.Team = new Hawk.ComponentsManager(AppComponents.Team, 'team-components');
+AppComponentManagers.EnemyTeam = new Hawk.ComponentsManager(AppComponents.Team, 'enemy-team-components');
+AppComponentManagers.Match = new Hawk.ComponentsManager(AppComponents.Match, 'match-components');
+AppComponentManagers.Player = new Hawk.ComponentsManager(AppComponents.Player, 'player-components');
+const AppContentsManager = new Hawk.ContentsManager('site-content');
+const AppAjaxRequestsController = new Hawk.AjaxRequestsController();
+const AppPagesManager = new Hawk.PagesManager(Routes, 'site-content');
 /**var MyCounter01 = Counter.newInstance(1);
 
 var MyCounter02 = Counter.newInstance(2);

@@ -1,64 +1,24 @@
 // require ./hawk/_hawk.js
 
 
+const AppComponents = {};
 
-var Counter = new Hawk.ComponentClass('counter', {
-    values: {
-        victories: 0,
-        defeats: 0
-    },
-    properties: {
-        percentageVictories: function(component) {
-            return component.get('victories') / (component.get('victories') + component.get('defeats'));
-        }
-    },
-    methods: {
-        calculateProgress: function(component) {
-            var progress = component.getElement('progress');
 
-            progress.css({ width: (parseFloat(component.getProperty('percentageVictories')) * 100) + "%" });
-        }
-    },
-    onRefresh: function(key, value, component) {
-        if (key == 'victories') {
-            console.log('victory', value);
-        }
-    }
-});
-Counter.initialize();
-
-const Team = new Hawk.ComponentClass('team', {
-        name: ""
+AppComponents.Team = new Hawk.ComponentClass('team', {
+        name: "",
+        players: []
     },
     {},
 function(json) {
     return {
         id: json.id,
-        name: json.name
+        name: json.name,
+        players: json.players
     };
 });
 
 
-const someOptions = {
-    values: {
-        date: "",
-        'host-name': "",
-        'guest-name': "",
-        'host-result': 0,
-        'guest-result': 0
-    },
-    properties: {
-        result: function(component) {
-            return component.get('host-result') + ":" + component.get('guest-result');
-        }
-    }
-};
-
-const clonedOptions = Object.assign({}, someOptions);
-
-console.log(clonedOptions);
-
-const Match = new Hawk.ComponentClass('match', {
+AppComponents.Match = new Hawk.ComponentClass('match', {
         date: "",
         'host-name': "",
         'guest-name': "",
@@ -82,22 +42,33 @@ function(json) {
     };
 });
 
-const AppComponentManager = new Hawk.ComponentsManager();
+AppComponents.Player = new Hawk.ComponentClass('player', {
+        name: "",
+        surname: "",
+        'position-name': ""
+    }, {
+    },
+    function(json) {
+        return {
+            id: json.id,
+            name: json.name,
+            surname: json.surname,
+            'position-name': json.positionName
+        };
+    });
 
-if (Hawk.Routes.is(Routes.TEAM)) {
-    const currentTeamID = Hawk.Routes.get('team');
+const AppComponentManagers = {};
 
-    console.log(currentTeamID);
+AppComponentManagers.Team = new Hawk.ComponentsManager(AppComponents.Team, 'team-components');
+AppComponentManagers.EnemyTeam = new Hawk.ComponentsManager(AppComponents.Team, 'enemy-team-components');
+AppComponentManagers.Match = new Hawk.ComponentsManager(AppComponents.Match, 'match-components');
+AppComponentManagers.Player = new Hawk.ComponentsManager(AppComponents.Player, 'player-components');
 
-    AppComponentManager.loadComponents('/matches/get/' + currentTeamID, Match, 'match-components');
-} else {
-    console.log("Dashboard");
-}
+const AppContentsManager = new Hawk.ContentsManager('site-content');
 
-AppComponentManager.loadComponents('/teams/get', Team, 'team-components');
-AppComponentManager.loadComponents('/enemy-teams/get', Team, 'enemy-team-components');
+const AppAjaxRequestsController = new Hawk.AjaxRequestsController();
 
-
+const AppPagesManager = new Hawk.PagesManager(Routes, 'site-content');
 
 /**var MyCounter01 = Counter.newInstance(1);
 

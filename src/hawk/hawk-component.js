@@ -92,6 +92,16 @@ Hawk.Component = function(classname, values, options, id) {
         }
     }
 
+    this.remove = function() {
+        const container = this.getContainer();
+
+        container.velocity("slideUp", {
+            complete: function() {
+                container.remove();
+            }
+        });
+    }
+
     this.run = function() {
         var allComponentBindings = {};
 

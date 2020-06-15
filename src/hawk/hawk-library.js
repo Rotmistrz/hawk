@@ -2203,6 +2203,85 @@ Hawk.getPath = function() {
     return Hawk.getLocation().pathname;
 }
 
+Hawk.checkRoute = function(route, path) {
+    const pathParts = path.split('/');
+
+    console.log(pathParts);
+
+    console.log(route.toString().replace("\\", ""));
+
+    const routeParts = route.toString().replace("\\", "").split('/');
+
+    console.log(routeParts);
+
+    let regex;
+
+    if (route == "/") {
+        return route == path;
+    } else {
+        for (let i in routeParts) {
+            if (typeof pathParts[i] != 'undefined') {
+                regex = new RegExp(routeParts[i]);
+
+                if (!regex.test(pathParts[i])) {
+                    console.log("FALSEEEEEE");
+
+                    return false;
+                }
+
+                console.log("Póki co git");
+            } else {
+                console.log("FALSE");
+
+                return false; 
+            }
+        }
+
+        return true;
+    }
+}
+
+Hawk.LayeredBox = function (container, options) {
+    var that = this;
+
+    this.container = $(container);
+
+    this.defaultOptions = {
+        buttonClass: 'layered-box-button',
+        closeClass: 'layered-box__layer-close',
+        layerClass: 'layered-box__layer',
+        onLoading: function(box) {}
+    };
+
+    this.options = Hawk.mergeObjects(this.defaultOptions, options);
+
+    this.buttons = this.container.find('.' + this.options.buttonClass);
+    this.layer = this.container.find('.' + this.options.layerClass);
+    this.close = this.container.find('.' + this.options.closeClass);
+
+    this.loadLayer = function() {
+
+    }
+
+    this.run = function() {
+        this.buttons.click(function() {
+            that.layer.velocity("fadeIn", {
+                duration: 200
+            });
+
+            if (typeof that.options.onLoading != 'undefined') {
+                that.options.onLoading(that);
+            }
+        });
+
+        this.close.click(function() {
+            that.layer.velocity("fadeOut", {
+                duration: 200
+            });
+        });
+    }
+}
+
 Hawk.Routes = {
     routes: {},
 
@@ -2211,7 +2290,9 @@ Hawk.Routes = {
     pathRegexp: new RegExp(this.path),
 
     getPath: function() {
-        return this.path;
+        console.log("GET PATH", window.location.pathname);
+
+        return window.location.pathname;
     },
 
     /**routeExists: function(routeName) {

@@ -63,6 +63,14 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
         }
     }
 
+    this.removeInstance = function(index) {
+        if (this.instanceExists(index)) {
+            const current = this.instances[index];
+
+            current.remove();
+        }
+    }
+
     this.createFromJSON = function(json) {
         const fields = this.parseJSON(json);
 
