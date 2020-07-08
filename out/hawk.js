@@ -8,6 +8,11 @@ Hawk = {
 Hawk.Constants = {
     COMPONENT_ID_ATTRIBUTE: "data-component-id"
 };
+Hawk.RequestStatus = {
+    SUCCESS: 0,
+    ERROR: 1,
+    EXCEPTION: 2
+};
 Hawk.Validator = {};
 Hawk.Validator.isEmail = function(email) {
     if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
@@ -132,10 +137,6 @@ Hawk.DropdownConstants = {
     types: {
         OVERLAYER: 0,
         EXPANDING: 1
-    },
-    directions: {
-        DOWNWARDS: 0,
-        UPWARDS: 1
     }
 }
 Hawk.Dropdown = function(container, options) {
@@ -154,19 +155,26 @@ Hawk.Dropdown = function(container, options) {
         slideSpeed: 200,
         mode: Hawk.DropdownConstants.modes.PLAIN,
         type: Hawk.DropdownConstants.types.OVERLAYER,
-        direction: Hawk.DropdownConstants.directions.DOWNWARDS,
         containerClass: 'dropdown',
         expandingTypeClass: 'dropdown--expanding',
         choosableModeClass: 'dropdown--choosable',
-        upwardsDirectionClass: 'dropdown--upwards',
+        filledClass: 'dropdown--filled',
         openClass: 'dropdown--open',
         headerClass: 'dropdown__header',
         titleClass: 'dropdown__title',
         listClass: 'dropdown__list',
         listContainerClass: 'dropdown__list-container',
         onShow: function(dropdown) {},
+        onShowBegin: function(dropdown) {},
         onHide: function(dropdown) {},
-        onRadioSelected: function(dropdown, radio) {}
+        onHideBegin: function(dropdown) {},
+        onRadioSelected: function(dropdown, radio) {
+            var description = radio.parent().find('.dropdown-item__description').html();
+            dropdown.title.html(description);
+            dropdown.hide();
+            dropdown.container.addClass(dropdown.options.filledClass);
+        },
+        onClick: function(dropdown, item) {}
     };
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
     this.state = this.states.CLOSED;
@@ -183,25 +191,15 @@ Hawk.Dropdown = function(container, options) {
     this.isOpen = function() {
         return this.state == this.states.OPEN;
     }
-    this.reset = function() {
-        var placeholder = "-";
-        if (typeof this.title.attr('data-placeholder') != 'undefined') {
-            placeholder = this.title.attr('data-placeholder');
-        }
-        console.log(placeholder);
-        this.title.html(placeholder);
-        this.fields.prop('checked', false);
-        return this;
-    }
-    this.show = function(callback) {
+    this.show = function() {
         var that = this;
         this.container.addClass(that.options.openClass);
+        if (typeof that.options.onShowBegin === 'function') {
+            that.options.onShowBegin(that);
+        }
         this.listContainer.velocity("slideDown", {
             duration: that.options.slideSpeed,
             complete: function() {
-                if (typeof callback === 'function') {
-                    callback(that);
-                }
                 if (typeof that.options.onShow === 'function') {
                     that.options.onShow(that);
                 }
@@ -210,15 +208,28 @@ Hawk.Dropdown = function(container, options) {
         this.setOpen();
         return this;
     }
-    this.hide = function(callback) {
+    this.hideImmediately = function() {
         var that = this;
         this.container.removeClass(that.options.openClass);
+        if (typeof that.options.onHideBegin === 'function') {
+            that.options.onHideBegin(that);
+        }
+        this.listContainer.hide();
+        if (typeof that.options.onHide === 'function') {
+            that.options.onHide(that);
+        }
+        this.setClosed();
+        return this;
+    }
+    this.hide = function() {
+        var that = this;
+        this.container.removeClass(that.options.openClass);
+        if (typeof that.options.onHideBegin === 'function') {
+            that.options.onHideBegin(that);
+        }
         this.listContainer.velocity("slideUp", {
             duration: that.options.slideSpeed,
             complete: function() {
-                if (typeof callback === 'function') {
-                    callback(that);
-                }
                 if (typeof that.options.onHide === 'function') {
                     that.options.onHide(that);
                 }
@@ -232,7 +243,7 @@ Hawk.Dropdown = function(container, options) {
     }
     this.select = function(field) {
         if (!field.prop('checked')) {
-            field.prop('checked', true).trigger('change');
+            field.prop('checked', true);
         }
         var description = field.parent().find('.dropdown-item__description').html();
         that.title.html(description);
@@ -240,6 +251,11 @@ Hawk.Dropdown = function(container, options) {
         if (typeof that.options.onRadioSelected == 'function') {
             that.options.onRadioSelected(that, field);
         }
+        return this;
+    }
+    this.selectByIndex = function(index) {
+        var selectedInput = that.fields.eq(index);
+        this.select(selectedInput);
         return this;
     }
     this.selectByID = function(id) {
@@ -260,10 +276,7 @@ Hawk.Dropdown = function(container, options) {
         if (this.options.mode == Hawk.DropdownConstants.modes.CHOOSABLE) {
             this.container.addClass(this.options.choosableModeClass);
         }
-        if (this.options.direction == Hawk.DropdownConstants.directions.UPWARDS) {
-            this.container.addClass(this.options.upwardsDirectionClass);
-        }
-        this.hide();
+        this.hideImmediately();
         this.container.click(function(e) {
             e.stopPropagation();
         });
@@ -276,6 +289,11 @@ Hawk.Dropdown = function(container, options) {
                 that.show();
             }
         });
+        this.container.parent().click(function() {
+            if (that.isOpen()) {
+                that.hide();
+            }
+        });
         $('body').click(function() {
             if (that.isOpen()) {
                 that.hide();
@@ -283,14 +301,12 @@ Hawk.Dropdown = function(container, options) {
         });
         if (this.fields.length > 0) {
             this.fields.change(function() {
-                that.select($(this));
+                if (typeof that.options.onRadioSelected == 'function') {
+                    that.options.onRadioSelected(that, $(this));
+                }
             });
-            var defaultChecked = this.fields.filter('[checked="checked"]');
-            if (defaultChecked.length > 0) {
-                that.select(defaultChecked);
-            }
         }
-        return true;
+        return this;
     }
 }
 Hawk.AjaxOverlayerManager = function(id, options) {
@@ -1444,30 +1460,24 @@ Hawk.CategorizedItems = function(container, options) {
 }
 Hawk.formFieldTypes = {
     TEXT: 'text',
-    PASSWORD: 'password',
     CHECKBOX: 'checkbox',
     RADIO: 'radio',
     TEXTAREA: 'textarea',
     SELECT: 'select',
-    FILE: 'file',
-    HIDDEN: 'hidden'
+    FILE: 'file'
 };
-Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
+Hawk.FormField = function(name, type, wrapperClass, required, callback) {
     var that = this;
     this.name = name;
     this.type = type;
-    this.wrapperSelector = wrapperSelector;
+    this.wrapperClass = wrapperClass;
     this.required = required;
     this.callback = callback;
     this.wrapper;
     this.field;
     this.errorClass = "error";
-    this.getWrapper = function() {
-        if (typeof this.wrapperSelector == 'function') {
-            return this.wrapperSelector(this.field);
-        } else {
-            return this.field.parents('.' + this.wrapperSelector);
-        }
+    this.getName = function() {
+        return this.name;
     }
     this.bind = function(form) {
         if (this.type == Hawk.formFieldTypes.TEXTAREA) {
@@ -1483,7 +1493,33 @@ Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
             this.field = $(form).find('input[name="' + this.name + '"]');
         }
         if (this.field.length > 0) {
-            this.wrapper = this.getWrapper();
+            this.wrapper = this.field.parents('.' + this.wrapperClass);
+        }
+    }
+    this.parseFieldsIntoArray = function(chosenFields) {
+        var result = [];
+        chosenFields.each(function() {
+            result.push($(this).val());
+        });
+        return result;
+    }
+    this.getValue = function() {
+        if (this.type == Hawk.formFieldTypes.CHECKBOX) {
+            var chosen = this.field.filter(':checked');
+            if (chosen.length > 0) {
+                this.parseFieldsIntoArray(chosen);
+            } else {
+                return null;
+            }
+        } else if (this.type == Hawk.formFieldTypes.RADIO) {
+            var chosen = this.field.filter(':checked');
+            if (chosen.length > 0) {
+                return chosen.val();
+            } else {
+                return null;
+            }
+        } else {
+            return this.field.val();
         }
     }
     this.isBinded = function() {
@@ -1534,13 +1570,19 @@ Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
         });
     }
 }
-Hawk.FormSender = function(element, fields, options) {
+Hawk.FormSender = function(id, fields, options) {
     var that = this;
-    this.form = $(element).first();
-    this.id = this.form.attr('id');
-    this.rawForm = this.form.get(0);
-    this.fields = fields;
+    this.id = id;
+    this.rawForm = document.getElementById(this.id);
+    this.form = $(this.rawForm);
+    this.fields = {};
+    for (var i in fields) {
+        var current = fields[i];
+        this.fields[current.getName()] = current;
+    }
     this.defaultOptions = {
+        isStatic: false,
+        staticCallback: function() {},
         ajaxPath: '/ajax.php',
         extraData: {},
         incorrectFieldClass: 'error',
@@ -1550,9 +1592,11 @@ Hawk.FormSender = function(element, fields, options) {
         infoWrapperClass: 'form__info-wrapper',
         infoClass: 'form__info',
         spinnerClass: 'form__spinner',
-        correctCallback: function() {},
-        errorCallback: function() {},
-        exceptionCallback: function() {},
+        onCorrect: function(result) {
+            that.changeMessage(result.message);
+        },
+        onError: function(result) {},
+        onException: function(result) {},
         callback: function() {}
     };
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
@@ -1641,6 +1685,12 @@ Hawk.FormSender = function(element, fields, options) {
         });
         return this;
     }
+    this.immediatelyClearMessage = function() {
+        that.info.css({
+            opacity: 0
+        });
+        return this;
+    }
     this.clearMessage = function(callback) {
         this.info.velocity({
             opacity: 0
@@ -1679,52 +1729,66 @@ Hawk.FormSender = function(element, fields, options) {
         this.form.find('input, textarea').attr('disabled', 'disabled');
         return this;
     }
+    this.isStatic = function() {
+        return this.options.isStatic;
+    }
     this.send = function() {
         this.spinner.show();
-        var data = new FormData(that.rawForm);
-        for (var key in that.options.extraData) {
-            data.append(key, that.options.extraData[key]);
-        }
-        $.ajax({
-            url: that.options.ajaxPath,
-            type: 'POST',
-            data: data,
-            cache: false,
-            processData: false, // Don't process the files
-            contentType: false,
-            dataType: 'json',
-            success: function(result) {
-                //console.log(result);
-                if (!result.error) {
-                    that.clear();
-                    that.hideButton();
-                    that.disable();
-                    if (typeof that.options.correctCallback == 'function') {
-                        that.clearMessage();
-                        that.options.correctCallback(result);
-                    } else {
-                        that.changeMessage(result.message);
-                    }
-                } else {
-                    that.checkFields(result.errorFields);
-                    that.changeMessage(result.message);
-                    if (typeof that.options.errorCallback == 'function') {
-                        that.options.errorCallback(result);
-                    }
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.log(jqXHR.responseText);
-                that.changeMessage("Wystąpił nieoczekiwany problem podczas wysyłania wiadomości. Proszę spróbować ponownie później.");
-                if (typeof that.options.exceptionCallback == 'function') {
-                    that.options.exceptionCallback();
-                }
-                console.log(errorThrown);
-            },
-            complete: function(jqXHR) {
-                that.spinner.hide();
+        if (!this.isStatic()) {
+            this.immediatelyClearMessage();
+            var data = new FormData(that.rawForm);
+            for (var key in that.options.extraData) {
+                data.append(key, that.options.extraData[key]);
             }
-        });
+            $.ajax({
+                url: that.options.ajaxPath,
+                type: 'POST',
+                data: data,
+                cache: false,
+                processData: false, // Don't process the files
+                contentType: false,
+                dataType: 'json',
+                success: function(result) {
+                    console.log(result);
+                    if (result.status == Hawk.RequestStatus.SUCCESS) {
+                        that.clear();
+                        that.hideButton();
+                        that.disable();
+                        if (typeof that.options.onCorrect == 'function') {
+                            that.options.onCorrect(result);
+                        } else {
+                            that.changeMessage(result.message);
+                        }
+                    } else if (result.status == Hawk.RequestStatus.ERROR) {
+                        that.checkFields(result.errorFields);
+                        that.changeMessage(result.message);
+                        if (typeof that.options.onError == 'function') {
+                            that.options.onError(result);
+                        }
+                    } else {
+                        that.checkFields(result.errorFields);
+                        that.changeMessage(result.message);
+                        if (typeof that.options.onException == 'function') {
+                            that.options.onException(result);
+                        }
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log(jqXHR.responseText);
+                    that.changeMessage("Wystąpił nieoczekiwany problem podczas przetwarzania formularza. Proszę spróbować ponownie później.");
+                    console.log(errorThrown);
+                    if (typeof that.options.onException == 'function') {
+                        that.options.onException();
+                    }
+                },
+                complete: function(jqXHR) {
+                    that.spinner.hide();
+                }
+            });
+        } else {
+            this.options.staticCallback(this, this.fields);
+            that.spinner.hide();
+        }
     }
     this.bindFields = function() {
         for (var i in this.fields) {
@@ -1732,6 +1796,9 @@ Hawk.FormSender = function(element, fields, options) {
             current.run(that.form);
         }
         return this;
+    }
+    this.getField = function(name) {
+        return this.fields[name];
     }
     this.run = function() {
         this.bindFields();
@@ -1912,6 +1979,19 @@ Hawk.Component = function(classname, values, options, id) {
         this.values[key] = value;
         return this;
     }
+    this.addSubitem = function(key, component) {
+        this.values[key][component.getID()] = component;
+        this.refreshView();
+    }
+    this.getSubitem = function(key, index) {
+        return this.values[key][index];
+    }
+    this.placeSubitem = function(key, component, html) {
+        const element = this.getElement(key);
+        element.append(html);
+        this.refreshView();
+        return this;
+    }
     this.get = function(key) {
         return this.values[key];
     }
@@ -1995,20 +2075,20 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     this.getValues = function() {
         return this.values;
     }
-    this.newInstance = function(id, values) {
-        if (!this.instanceExists(id)) {
-            let certainValues = this.getValues();
-            if (typeof values != 'undefined') {
-                certainValues = this.parseValues(values);
-            }
-            const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
-            instance.run();
-            instance.refreshView();
-            this.instances[instance.getID()] = instance;
-            return instance;
-        } else {
-            return null;
+    this.newInstance = function(id, values, force) {
+        //if (!this.instanceExists(id)) {
+        let certainValues = this.getValues();
+        if (typeof values != 'undefined') {
+            certainValues = this.parseValues(values);
         }
+        const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
+        instance.run();
+        instance.refreshView();
+        this.instances[instance.getID()] = instance;
+        return instance;
+        // } else {
+        //     return null;
+        // }
     }
     this.instanceExists = function(index) {
         return typeof this.instances[index] != 'undefined';
@@ -2020,7 +2100,7 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
                 resultValues[i] = certainValues[i];
             }
         }
-        return certainValues;
+        return resultValues;
     }
     this.getInstance = function(index) {
         if (this.instanceExists(index)) {
@@ -2035,14 +2115,26 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
             current.remove();
         }
     }
+    this.refreshView = function() {
+        for (let i in this.instances) {
+            console.log(this.instances[i]);
+            this.instances[i].refreshView();
+        }
+    }
     this.createFromJSON = function(json) {
         const fields = this.parseJSON(json);
+        console.log(fields);
+        console.log(typeof fields.id != 'undefined');
         if (typeof fields.id != 'undefined') {
             const values = this.parseValues(fields);
+            console.log(values);
             return this.newInstance(fields.id, values);
         } else {
             return null;
         }
+    }
+    this.clearInstances = function() {
+        this.instances = [];
     }
     this.getClassname = function() {
         return this.classname;
@@ -2175,6 +2267,7 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
         this.requestsManager.get(path, {
             onSuccess: function(result) {
                 that.getWrapper().html(result.html);
+                console.log(result.bundle);
                 let current;
                 for (let i in result.bundle) {
                     current = that.classComponent.createFromJSON(result.bundle[i]);
@@ -2183,7 +2276,7 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
                     }
                 }
                 if (typeof generalCallback == 'function') {
-                    generalCallback();
+                    generalCallback(result);
                 }
             },
             onFailure: function(result) {
@@ -2253,6 +2346,9 @@ Hawk.PagesManager = function(routes, wrapperClass) {
                 window.history.pushState({
                     page: path
                 }, '', path);
+                for (let i in AppComponents) {
+                    AppComponents[i].clearInstances();
+                }
                 if (typeof callback == 'function') {
                     callback();
                 }
@@ -2270,12 +2366,11 @@ Hawk.PagesManager = function(routes, wrapperClass) {
     }
     this.loading = function(e) {
         const destination = that.getDestination($(this));
-        e.preventDefault();
         let route;
         for (let i in that.routes) {
             route = that.routes[i];
             console.log(route);
-            if (Hawk.checkRoute(route.path, destination)) {
+            if (Hawk.checkRoute(route.path, destination) && destination != that.routes.MAIN.path) {
                 e.preventDefault();
                 that.load(destination, route.callback);
                 //that.changePath(destination);
@@ -2284,7 +2379,6 @@ Hawk.PagesManager = function(routes, wrapperClass) {
             }
         }
         console.log("It's not an app route");
-        return;
     }
     this.refreshDependencies = function() {
         $('a').off('click', this.loading).on('click', this.loading);
@@ -2308,7 +2402,13 @@ const Routes = {
         callback: function() {
             const currentTeamID = Hawk.Routes.get('team');
             const currentMatchID = Hawk.Routes.get('match');
-            AppComponentManagers.Player.loadComponents('/get-players/team/' + currentTeamID + '/match/' + currentMatchID, function() {}, function() {
+            AppComponentManagers.Player.loadComponents('/get-players/team/' + currentTeamID + '/match/' + currentMatchID, function(team) {
+                // const players = team.get('players');
+                // for (let i in players) {
+                //     const player = AppComponents.Player.createFromJSON(players[i]);
+                //     AppComponents.Team.addSubitem('players', player.getID(), player);
+                // }
+            }, function(result) {
                 $('.layered-box').each(function() {
                     var dropdownContainer = $(this).find('.dropdown-menu');
                     var dropdown = new Hawk.Dropdown(dropdownContainer, {
@@ -2328,7 +2428,31 @@ const Routes = {
                     current.run();
                 });
                 AppAjaxRequestsController.refreshDependencies();
+                AppPagesManager.refreshDependencies();
             });
+            // AppComponentManagers.Player.loadComponents('/get-players/team/' + currentTeamID + '/match/' + currentMatchID, function(current) {
+            //     console.log(current);
+            // }, function() {
+            //     $('.layered-box').each(function() {
+            //         var dropdownContainer = $(this).find('.dropdown-menu');
+            //         var dropdown = new Hawk.Dropdown(dropdownContainer, {
+            //             onShow: function(dropdown) {
+            //                 dropdown.container.find('.icon-hamburger').addClass('open').addClass('icon-hamburger--light');
+            //             },
+            //             onHide: function(dropdown) {
+            //                 dropdown.container.find('.icon-hamburger').removeClass('open').removeClass('icon-hamburger--light');
+            //             }
+            //         });
+            //         dropdown.run();
+            //         var current = new Hawk.LayeredBox($(this), {
+            //             onLoading: function(box) {
+            //                 dropdown.hide();
+            //             }
+            //         });
+            //         current.run();
+            //     });
+            //     AppAjaxRequestsController.refreshDependencies();
+            // });
             const setsDropdownContainer = $('#sets-dropdown');
             if (setsDropdownContainer.length) {
                 const setsDropdown = new Hawk.Dropdown(setsDropdownContainer, {
@@ -2343,20 +2467,32 @@ const Routes = {
         callback: function() {
             const currentTeamID = Hawk.Routes.get('team');
             console.log(currentTeamID);
+            AppComponentManagers.Team.loadComponents('/teams/get', function(currentTeamID) {
+                // const players = team.get('players');
+                // for (let i in players) {
+                //     AppComponents.Player.createFromJSON(players[i]);
+                // }
+                AppAjaxRequestsController.refreshDependencies();
+                AppPagesManager.refreshDependencies();
+            });
             AppComponentManagers.Match.loadComponents('/matches/get/' + currentTeamID, function() {
                 AppAjaxRequestsController.refreshDependencies();
                 AppPagesManager.refreshDependencies();
             });
         }
     },
+    LOGIN: {
+        path: '/user/login',
+        callback: function() {}
+    },
     MAIN: {
         path: '/',
         callback: function() {
             AppComponentManagers.Team.loadComponents('/teams/get', function(team) {
-                const players = team.get('players');
-                for (let i in players) {
-                    AppComponents.Player.createFromJSON(players[i]);
-                }
+                // const players = team.get('players');
+                // for (let i in players) {
+                //     AppComponents.Player.createFromJSON(players[i]);
+                // }
                 AppAjaxRequestsController.refreshDependencies();
                 AppPagesManager.refreshDependencies();
             });
@@ -2368,58 +2504,57 @@ const Routes = {
     }
 };
 const AppComponents = {};
-AppComponents.Team = new Hawk.ComponentClass('team', {
-    name: "",
-    players: []
+AppComponents.ModulesGroup = new Hawk.ComponentClass('modules-group', {
+    name: ""
 }, {}, function(json) {
+    let result = [];
     return {
         id: json.id,
-        name: json.name,
-        players: json.players
+        name: json.name
     };
 });
-AppComponents.Match = new Hawk.ComponentClass('match', {
-    date: "",
-    'host-name': "",
-    'guest-name': "",
-    'host-result': 0,
-    'guest-result': 0
+AppComponents.Module = new Hawk.ComponentClass('module', {
+    name: "",
+    elements: []
 }, {
-    properties: {
-        result: function(component) {
-            return component.get('host-result') + ":" + component.get('guest-result');
+    methods: {
+        refreshElements: function(component) {
+            const elements = component.get('elements');
+            for (let i in elements) {
+                elements[i].refreshView();
+            }
         }
     }
 }, function(json) {
-    return {
-        id: json.id,
-        date: json.date,
-        'host-name': json.host.name,
-        'guest-name': json.guest.name,
-        'host-result': json.hostResult,
-        'guest-result': json.guestResult
-    };
-});
-AppComponents.Player = new Hawk.ComponentClass('player', {
-    name: "",
-    surname: "",
-    'position-name': ""
-}, {}, function(json) {
+    const elements = json.elements;
+    let result = [];
+    for (let i in elements) {
+        const element = AppComponents.Element.createFromJSON(elements[i]);
+        result[element.getID()] = element;
+    }
     return {
         id: json.id,
         name: json.name,
-        surname: json.surname,
-        'position-name': json.positionName
+        elements: result
+    };
+});
+AppComponents.Element = new Hawk.ComponentClass('element', {
+    name: "",
+    code: ""
+}, {}, function(json) {
+    let result = [];
+    return {
+        id: json.id,
+        name: json.name,
+        code: json.code
     };
 });
 const AppComponentManagers = {};
-AppComponentManagers.Team = new Hawk.ComponentsManager(AppComponents.Team, 'team-components');
-AppComponentManagers.EnemyTeam = new Hawk.ComponentsManager(AppComponents.Team, 'enemy-team-components');
-AppComponentManagers.Match = new Hawk.ComponentsManager(AppComponents.Match, 'match-components');
-AppComponentManagers.Player = new Hawk.ComponentsManager(AppComponents.Player, 'player-components');
-const AppContentsManager = new Hawk.ContentsManager('site-content');
-const AppAjaxRequestsController = new Hawk.AjaxRequestsController();
-const AppPagesManager = new Hawk.PagesManager(Routes, 'site-content');
+AppComponentManagers.ModulesGroup = new Hawk.ComponentsManager(AppComponents.ModulesGroup, 'modules-group-components');
+AppComponentManagers.Module = new Hawk.ComponentsManager(AppComponents.Module, 'module-components');
+//const AppContentsManager = new Hawk.ContentsManager('site-content');
+//const AppAjaxRequestsController = new Hawk.AjaxRequestsController();
+//const AppPagesManager = new Hawk.PagesManager(Routes, 'site-content');
 /**var MyCounter01 = Counter.newInstance(1);
 
 var MyCounter02 = Counter.newInstance(2);

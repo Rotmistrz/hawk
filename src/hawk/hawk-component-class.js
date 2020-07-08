@@ -19,8 +19,8 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
         return this.values;
     }
 
-    this.newInstance = function(id, values) {
-        if (!this.instanceExists(id)) {
+    this.newInstance = function(id, values, force) {
+        //if (!this.instanceExists(id)) {
             let certainValues = this.getValues();
 
             if (typeof values != 'undefined') {
@@ -34,9 +34,9 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
             this.instances[instance.getID()] = instance;
 
             return instance;
-        } else {
-            return null;
-        }
+        // } else {
+        //     return null;
+        // }
     }
 
     this.instanceExists = function(index) {
@@ -52,7 +52,7 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
             }
         }
 
-        return certainValues;
+        return resultValues;
     }
 
     this.getInstance = function(index) {
@@ -71,16 +71,35 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
         }
     }
 
+    this.refreshView = function() {
+
+
+        for (let i in this.instances) {
+            console.log(this.instances[i]);
+            
+            this.instances[i].refreshView();
+        }
+    }
+
     this.createFromJSON = function(json) {
         const fields = this.parseJSON(json);
 
+        console.log(fields);
+        console.log(typeof fields.id != 'undefined');
+
         if (typeof fields.id != 'undefined') {
             const values = this.parseValues(fields);
+
+            console.log(values);
 
             return this.newInstance(fields.id, values);
         } else {
             return null;
         }
+    }
+
+    this.clearInstances = function() {
+        this.instances = [];
     }
 
     this.getClassname = function() {

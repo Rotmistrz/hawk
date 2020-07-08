@@ -25,6 +25,10 @@ Hawk.PagesManager = function(routes, wrapperClass) {
 
                 window.history.pushState({ page: path }, '', path);
 
+                for (let i in AppComponents) {
+                    AppComponents[i].clearInstances();
+                }
+
                 if (typeof callback == 'function') {
                     callback();
                 }
@@ -45,8 +49,6 @@ Hawk.PagesManager = function(routes, wrapperClass) {
     this.loading = function(e) {
         const destination = that.getDestination($(this));
 
-        e.preventDefault();
-
         let route;
 
         for (let i in that.routes) {
@@ -54,7 +56,7 @@ Hawk.PagesManager = function(routes, wrapperClass) {
 
             console.log(route);
 
-            if (Hawk.checkRoute(route.path, destination)) {
+            if (Hawk.checkRoute(route.path, destination) && destination != that.routes.MAIN.path) {
                 e.preventDefault();
 
                 that.load(destination, route.callback);
@@ -68,8 +70,6 @@ Hawk.PagesManager = function(routes, wrapperClass) {
         }
 
         console.log("It's not an app route");
-
-        return;
     }
 
     this.refreshDependencies = function() {

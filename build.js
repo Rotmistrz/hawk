@@ -8,7 +8,7 @@ let output = bundle({
 
 let anotherOutput = bundle({
     entry : './src/index.js',
-    dest: '../../__projects/symfony/volleyscout/public/js/app.js',
+    dest: 'E:/john-weston/herocms/herocms/www/herocms4/public/js/hawk.js',
     print: false
 });
 

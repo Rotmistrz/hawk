@@ -32,6 +32,26 @@ Hawk.Component = function(classname, values, options, id) {
         return this;
     }
 
+    this.addSubitem = function(key, component) {
+        this.values[key][component.getID()] = component;
+
+        this.refreshView();
+    }
+
+    this.getSubitem = function(key, index) {
+        return this.values[key][index];
+    }
+
+    this.placeSubitem = function(key, component, html) {
+        const element = this.getElement(key);
+
+        element.append(html);
+
+        this.refreshView();
+
+        return this;
+    }
+
     this.get = function(key) {
         return this.values[key];
     }

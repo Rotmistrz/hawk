@@ -151,11 +151,6 @@ Hawk.DropdownConstants = {
     types: {
         OVERLAYER: 0,
         EXPANDING: 1
-    },
-
-    directions: {
-        DOWNWARDS: 0,
-        UPWARDS: 1
     }
 }
 
@@ -181,12 +176,11 @@ Hawk.Dropdown = function(container, options) {
 
         mode: Hawk.DropdownConstants.modes.PLAIN,
         type: Hawk.DropdownConstants.types.OVERLAYER,
-        direction: Hawk.DropdownConstants.directions.DOWNWARDS,
 
         containerClass: 'dropdown',
         expandingTypeClass: 'dropdown--expanding',
         choosableModeClass: 'dropdown--choosable',
-        upwardsDirectionClass: 'dropdown--upwards',
+        filledClass: 'dropdown--filled',
         openClass: 'dropdown--open',
         headerClass: 'dropdown__header',
         titleClass: 'dropdown__title',
@@ -194,10 +188,19 @@ Hawk.Dropdown = function(container, options) {
         listContainerClass: 'dropdown__list-container',
 
         onShow: function(dropdown) {},
+        onShowBegin: function(dropdown) {},
         onHide: function(dropdown) {},
+        onHideBegin: function(dropdown) {},
         onRadioSelected: function(dropdown, radio) {
+            var description = radio.parent().find('.dropdown-item__description').html();
 
-        }
+            dropdown.title.html(description);
+
+            dropdown.hide();
+
+            dropdown.container.addClass(dropdown.options.filledClass);
+        },
+        onClick: function(dropdown, item) {}
     };
 
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
@@ -223,36 +226,18 @@ Hawk.Dropdown = function(container, options) {
         return this.state == this.states.OPEN;
     }
 
-    this.reset = function() {
-        var placeholder = "-";
-
-        if (typeof this.title.attr('data-placeholder') != 'undefined') {
-            placeholder = this.title.attr('data-placeholder');
-        }
-
-        console.log(placeholder);
-
-        this.title.html(placeholder);
-
-        this.fields.prop('checked', false);
-
-
-
-        return this;
-    }
-
-    this.show = function(callback) {
+    this.show = function() {
         var that = this;
 
         this.container.addClass(that.options.openClass);
 
+        if (typeof that.options.onShowBegin === 'function') {
+            that.options.onShowBegin(that);
+        }
+
         this.listContainer.velocity("slideDown", {
             duration: that.options.slideSpeed,
             complete: function() {
-                if (typeof callback === 'function') {
-                    callback(that);
-                }
-
                 if (typeof that.options.onShow === 'function') {
                     that.options.onShow(that);
                 }
@@ -264,18 +249,38 @@ Hawk.Dropdown = function(container, options) {
         return this;
     }
 
-    this.hide = function(callback) {
+    this.hideImmediately = function() {
         var that = this;
 
         this.container.removeClass(that.options.openClass);
 
+        if (typeof that.options.onHideBegin === 'function') {
+            that.options.onHideBegin(that);
+        }
+
+        this.listContainer.hide();
+
+        if (typeof that.options.onHide === 'function') {
+            that.options.onHide(that);
+        }
+
+        this.setClosed();
+
+        return this;
+    }
+
+    this.hide = function() {
+        var that = this;
+
+        this.container.removeClass(that.options.openClass);
+
+        if (typeof that.options.onHideBegin === 'function') {
+            that.options.onHideBegin(that);
+        }
+
         this.listContainer.velocity("slideUp", {
             duration: that.options.slideSpeed,
             complete: function() {
-                if (typeof callback === 'function') {
-                    callback(that);
-                }
-
                 if (typeof that.options.onHide === 'function') {
                     that.options.onHide(that);
                 }
@@ -293,7 +298,7 @@ Hawk.Dropdown = function(container, options) {
 
     this.select = function(field) {
         if (!field.prop('checked')) {
-            field.prop('checked', true).trigger('change');
+            field.prop('checked', true);
         }
 
         var description = field.parent().find('.dropdown-item__description').html();
@@ -305,6 +310,14 @@ Hawk.Dropdown = function(container, options) {
         if (typeof that.options.onRadioSelected == 'function') {
             that.options.onRadioSelected(that, field);
         }
+
+        return this;
+    }
+
+    this.selectByIndex = function(index) {
+        var selectedInput = that.fields.eq(index);
+
+        this.select(selectedInput);
 
         return this;
     }
@@ -335,11 +348,7 @@ Hawk.Dropdown = function(container, options) {
             this.container.addClass(this.options.choosableModeClass);
         }
 
-        if (this.options.direction == Hawk.DropdownConstants.directions.UPWARDS) {
-            this.container.addClass(this.options.upwardsDirectionClass);
-        }
-
-        this.hide();
+        this.hideImmediately();
 
         this.container.click(function(e) {
             e.stopPropagation();
@@ -356,6 +365,12 @@ Hawk.Dropdown = function(container, options) {
             }
         });
 
+        this.container.parent().click(function() {
+            if (that.isOpen()) {
+                that.hide();
+            }
+        });
+
         $('body').click(function() {
             if (that.isOpen()) {
                 that.hide();
@@ -364,17 +379,13 @@ Hawk.Dropdown = function(container, options) {
 
         if (this.fields.length > 0) {
             this.fields.change(function() {
-                that.select($(this));
+                if (typeof that.options.onRadioSelected == 'function') {
+                    that.options.onRadioSelected(that, $(this));
+                }
             });
-
-            var defaultChecked = this.fields.filter('[checked="checked"]');
-
-            if (defaultChecked.length > 0) {
-                that.select(defaultChecked);
-            }
         }
 
-        return true;
+        return this;
     }
 }
 
@@ -1828,21 +1839,19 @@ Hawk.CategorizedItems = function(container, options) {
 
 Hawk.formFieldTypes = {
     TEXT: 'text',
-    PASSWORD: 'password',
     CHECKBOX: 'checkbox',
     RADIO: 'radio',
     TEXTAREA: 'textarea',
     SELECT: 'select',
-    FILE: 'file',
-    HIDDEN : 'hidden'
+    FILE: 'file'
 };
 
-Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
+Hawk.FormField = function(name, type, wrapperClass, required, callback) {
     var that = this;
 
     this.name = name;
     this.type = type;
-    this.wrapperSelector = wrapperSelector;
+    this.wrapperClass = wrapperClass;
     this.required = required;
     this.callback = callback;
 
@@ -1851,12 +1860,8 @@ Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
 
     this.errorClass = "error";
 
-    this.getWrapper = function() {
-        if (typeof this.wrapperSelector == 'function') {
-            return this.wrapperSelector(this.field);
-        } else {
-            return this.field.parents('.' + this.wrapperSelector);
-        }
+    this.getName = function() {
+        return this.name;
     }
 
     this.bind = function(form) {
@@ -1873,9 +1878,41 @@ Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
         } else {
             this.field = $(form).find('input[name="' + this.name + '"]');
         }
-
+        
         if (this.field.length > 0) {
-            this.wrapper = this.getWrapper();
+            this.wrapper = this.field.parents('.' + this.wrapperClass);
+        }
+    }
+
+    this.parseFieldsIntoArray = function(chosenFields) {
+        var result = [];
+
+        chosenFields.each(function() {
+            result.push($(this).val());
+        });
+
+        return result;
+    }
+
+    this.getValue = function() {
+        if (this.type == Hawk.formFieldTypes.CHECKBOX) {
+            var chosen = this.field.filter(':checked');
+
+            if (chosen.length > 0) {
+                this.parseFieldsIntoArray(chosen);
+            } else {
+                return null;
+            }
+        } else if (this.type == Hawk.formFieldTypes.RADIO) {
+            var chosen = this.field.filter(':checked');
+
+            if (chosen.length > 0) {
+                return chosen.val();
+            } else {
+                return null;
+            }
+        } else {
+            return this.field.val();
         }
     }
 
@@ -1940,17 +1977,25 @@ Hawk.FormField = function(name, type, wrapperSelector, required, callback) {
     }
 }
 
-Hawk.FormSender = function(element, fields, options) {
+Hawk.FormSender = function(id, fields, options) {
     var that = this;
 
-    this.form = $(element).first();
+    this.id = id;
+    this.rawForm = document.getElementById(this.id);
+    this.form = $(this.rawForm);
 
-    this.id = this.form.attr('id');
-    this.rawForm = this.form.get(0);
+    this.fields = {};
 
-    this.fields = fields;
+    for (var i in fields) {
+        var current = fields[i];
+
+        this.fields[current.getName()] = current;
+    }
 
     this.defaultOptions = {
+        isStatic: false,
+        staticCallback: function() {},
+
         ajaxPath: '/ajax.php',
         extraData: {},
         incorrectFieldClass: 'error',
@@ -1960,9 +2005,11 @@ Hawk.FormSender = function(element, fields, options) {
         infoWrapperClass: 'form__info-wrapper',
         infoClass: 'form__info',
         spinnerClass: 'form__spinner',
-        correctCallback: function() {},
-        errorCallback: function() {},
-        exceptionCallback: function() {},
+        onCorrect: function(result) {
+            that.changeMessage(result.message);
+        },
+        onError: function(result) {},
+        onException: function(result) {},
         callback: function() {}
     };
 
@@ -2071,6 +2118,12 @@ Hawk.FormSender = function(element, fields, options) {
         return this;
     }
 
+    this.immediatelyClearMessage = function() {
+        that.info.css({ opacity: 0 });
+
+        return this;
+    }
+
     this.clearMessage = function(callback) {
         this.info.velocity({ opacity: 0 }, {
             duration: 200,
@@ -2108,65 +2161,83 @@ Hawk.FormSender = function(element, fields, options) {
         return this;
     }
 
+    this.isStatic = function() {
+        return this.options.isStatic;
+    }
+
     this.send = function() {
         this.spinner.show();
 
-        var data = new FormData(that.rawForm);
+        if (!this.isStatic()) {
+            this.immediatelyClearMessage();
 
-        for (var key in that.options.extraData) {
-            data.append(key, that.options.extraData[key]);
-        }
+            var data = new FormData(that.rawForm);
 
-
-        $.ajax({
-            url: that.options.ajaxPath,
-            type: 'POST',
-            data: data,
-            cache: false,
-            processData: false, // Don't process the files
-            contentType: false,
-            dataType: 'json',
-            success: function(result) {
-                //console.log(result);
-
-                if (!result.error) {
-                    that.clear();
-
-                    that.hideButton();
-
-                    that.disable();
-
-                    if (typeof that.options.correctCallback == 'function') {
-                        that.clearMessage();
-                        that.options.correctCallback(result);
-                    } else {
-                        that.changeMessage(result.message);
-                    }
-                } else {
-                    that.checkFields(result.errorFields);
-
-                    that.changeMessage(result.message);
-
-                    if (typeof that.options.errorCallback == 'function') {
-                        that.options.errorCallback(result);
-                    }
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.log(jqXHR.responseText);
-
-                that.changeMessage("Wystąpił nieoczekiwany problem podczas wysyłania wiadomości. Proszę spróbować ponownie później.");
-
-                if (typeof that.options.exceptionCallback == 'function') {
-                    that.options.exceptionCallback();
-                }
-
-                console.log(errorThrown);
-            },
-            complete: function(jqXHR) {
-                that.spinner.hide();
+            for (var key in that.options.extraData) {
+                data.append(key, that.options.extraData[key]);
             }
-        });
+
+            $.ajax({
+                url: that.options.ajaxPath,
+                type: 'POST',
+                data: data,
+                cache: false,
+                processData: false, // Don't process the files
+                contentType: false,
+                dataType: 'json',
+                success: function(result) {
+                    console.log(result);
+
+                    if (result.status == Hawk.RequestStatus.SUCCESS) {
+                        that.clear();
+
+                        that.hideButton();
+
+                        that.disable();
+
+                        if (typeof that.options.onCorrect == 'function') {
+                            that.options.onCorrect(result);
+                        } else {
+                            that.changeMessage(result.message);
+                        }
+                    } else if (result.status == Hawk.RequestStatus.ERROR) {
+                        that.checkFields(result.errorFields);
+
+                        that.changeMessage(result.message);
+
+                        if (typeof that.options.onError == 'function') {
+                            that.options.onError(result);
+                        }
+                    } else {
+                        that.checkFields(result.errorFields);
+
+                        that.changeMessage(result.message);
+
+                        if (typeof that.options.onException == 'function') {
+                            that.options.onException(result);
+                        }
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log(jqXHR.responseText);
+
+                    that.changeMessage("Wystąpił nieoczekiwany problem podczas przetwarzania formularza. Proszę spróbować ponownie później.");
+
+                    console.log(errorThrown);
+
+                    if (typeof that.options.onException == 'function') {
+                        that.options.onException();
+                    }
+                },
+                complete: function(jqXHR) {
+                    that.spinner.hide();
+                }
+            });
+        } else {
+            this.options.staticCallback(this, this.fields);
+
+            that.spinner.hide();
+        }
     }
 
     this.bindFields = function() {
@@ -2177,6 +2248,10 @@ Hawk.FormSender = function(element, fields, options) {
         }
 
         return this;
+    }
+
+    this.getField = function(name) {
+        return this.fields[name];
     }
 
     this.run = function() {

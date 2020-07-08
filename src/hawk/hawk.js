@@ -11,3 +11,9 @@ Hawk = {
 Hawk.Constants = {
     COMPONENT_ID_ATTRIBUTE: "data-component-id"
 };
+
+Hawk.RequestStatus = {
+    SUCCESS: 0,
+    ERROR: 1,
+    EXCEPTION: 2
+};

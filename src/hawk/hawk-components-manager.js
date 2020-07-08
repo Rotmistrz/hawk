@@ -19,6 +19,8 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
             onSuccess: function(result) {
                 that.getWrapper().html(result.html);
 
+                console.log(result.bundle);
+
                 let current;
 
                 for (let i in result.bundle) {
@@ -30,7 +32,7 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
                 }
 
                 if (typeof generalCallback == 'function') {
-                    generalCallback();
+                    generalCallback(result);
                 }
             },
             onFailure: function(result) {
