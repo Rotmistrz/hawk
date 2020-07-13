@@ -1,13 +1,20 @@
 
-Hawk.ComponentClass = function(classname, values, options, parseJSON) {
+Hawk.ComponentClass = function(classname, values, subcomponents, options, parseJSON) {
     const that = this;
 
     this.classname = classname;
 
     this.values = values;
+    this.subcomponents = subcomponents;
     this.options = options;
 
-    this.parseJSON = parseJSON || function(json) {};
+    this.parseJSON = parseJSON || function(json) {
+        return {
+            id: -1,
+            values: {},
+            subcomponents: {}
+        };
+    };
 
     this.instances = [];
 
@@ -19,15 +26,19 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
         return this.values;
     }
 
-    this.newInstance = function(id, values, force) {
+    this.newInstance = function(id, values, subcomponents) {
         //if (!this.instanceExists(id)) {
             let certainValues = this.getValues();
 
             if (typeof values != 'undefined') {
                 certainValues = this.parseValues(values);
             }
+
+            if (typeof subcomponents != 'undefined') {
+                subcomponents = this.subcomponents;
+            }
             
-            const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
+            const instance = new Hawk.Component(this.getClassname(), certainValues, subcomponents, this.getOptions(), id);
             instance.run();
             instance.refreshView();
 
@@ -72,27 +83,18 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     }
 
     this.refreshView = function() {
-
-
         for (let i in this.instances) {
-            console.log(this.instances[i]);
-            
             this.instances[i].refreshView();
         }
     }
 
     this.createFromJSON = function(json) {
-        const fields = this.parseJSON(json);
+        const data = this.parseJSON(json);
 
-        console.log(fields);
-        console.log(typeof fields.id != 'undefined');
+        if (typeof data.id != 'undefined') {
+            const values = this.parseValues(data.values);
 
-        if (typeof fields.id != 'undefined') {
-            const values = this.parseValues(fields);
-
-            console.log(values);
-
-            return this.newInstance(fields.id, values);
+            return this.newInstance(data.id, values, data.subcomponents);
         } else {
             return null;
         }

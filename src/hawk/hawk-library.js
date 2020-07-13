@@ -1880,7 +1880,11 @@ Hawk.FormField = function(name, type, wrapperClass, required, callback) {
         }
         
         if (this.field.length > 0) {
-            this.wrapper = this.field.parents('.' + this.wrapperClass);
+            if (typeof this.wrapperClass == 'function') {
+                this.wrapper = this.wrapperClass(this.field);
+            } else {
+                this.wrapper = this.field.parents('.' + this.wrapperClass);
+            }
         }
     }
 

@@ -1493,7 +1493,11 @@ Hawk.FormField = function(name, type, wrapperClass, required, callback) {
             this.field = $(form).find('input[name="' + this.name + '"]');
         }
         if (this.field.length > 0) {
-            this.wrapper = this.field.parents('.' + this.wrapperClass);
+            if (typeof this.wrapperClass == 'function') {
+                this.wrapper = this.wrapperClass(this.field);
+            } else {
+                this.wrapper = this.field.parents('.' + this.wrapperClass);
+            }
         }
     }
     this.parseFieldsIntoArray = function(chosenFields) {
@@ -1957,10 +1961,11 @@ Hawk.run = function() {
     });
     return this;
 }
-Hawk.Component = function(classname, values, options, id) {
+Hawk.Component = function(classname, values, subcomponents, options, id) {
     var that = this;
     this.classname = classname;
     this.values = values;
+    this.subcomponents = subcomponents;
     this.properties = options.properties || {};
     this.methods = options.methods || {};
     this.bindingsDeclarations = options.bindingsDeclarations || [];
@@ -1979,14 +1984,15 @@ Hawk.Component = function(classname, values, options, id) {
         this.values[key] = value;
         return this;
     }
-    this.addSubitem = function(key, component) {
-        this.values[key][component.getID()] = component;
+    this.addSubcomponent = function(key, component) {
+        this.subcomponents[key][component.getID()] = component;
         this.refreshView();
     }
-    this.getSubitem = function(key, index) {
-        return this.values[key][index];
+    this.getSubcomponent = function(key, index) {
+        return this.subcomponents[key][index];
     }
-    this.placeSubitem = function(key, component, html) {
+    this.placeSubcomponent = function(key, component, html) {
+        this.subcomponents[key][component.getID()] = component;
         const element = this.getElement(key);
         element.append(html);
         this.refreshView();
@@ -2031,6 +2037,11 @@ Hawk.Component = function(classname, values, options, id) {
             element = this.getElement(i);
             element.html(this.getProperty(i));
         }
+        for (var i in this.subcomponents) {
+            for (let j in this.subcomponents[i]) {
+                this.subcomponents[i][j].refreshView();
+            }
+        }
         for (var i in this.methods) {
             this.methods[i](this);
         }
@@ -2062,12 +2073,19 @@ Hawk.Component = function(classname, values, options, id) {
         }
     }
 }
-Hawk.ComponentClass = function(classname, values, options, parseJSON) {
+Hawk.ComponentClass = function(classname, values, subcomponents, options, parseJSON) {
     const that = this;
     this.classname = classname;
     this.values = values;
+    this.subcomponents = subcomponents;
     this.options = options;
-    this.parseJSON = parseJSON || function(json) {};
+    this.parseJSON = parseJSON || function(json) {
+        return {
+            id: -1,
+            values: {},
+            subcomponents: {}
+        };
+    };
     this.instances = [];
     this.getOptions = function() {
         return this.options;
@@ -2075,13 +2093,16 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     this.getValues = function() {
         return this.values;
     }
-    this.newInstance = function(id, values, force) {
+    this.newInstance = function(id, values, subcomponents) {
         //if (!this.instanceExists(id)) {
         let certainValues = this.getValues();
         if (typeof values != 'undefined') {
             certainValues = this.parseValues(values);
         }
-        const instance = new Hawk.Component(this.getClassname(), certainValues, this.getOptions(), id);
+        if (typeof subcomponents != 'undefined') {
+            subcomponents = this.subcomponents;
+        }
+        const instance = new Hawk.Component(this.getClassname(), certainValues, subcomponents, this.getOptions(), id);
         instance.run();
         instance.refreshView();
         this.instances[instance.getID()] = instance;
@@ -2117,18 +2138,14 @@ Hawk.ComponentClass = function(classname, values, options, parseJSON) {
     }
     this.refreshView = function() {
         for (let i in this.instances) {
-            console.log(this.instances[i]);
             this.instances[i].refreshView();
         }
     }
     this.createFromJSON = function(json) {
-        const fields = this.parseJSON(json);
-        console.log(fields);
-        console.log(typeof fields.id != 'undefined');
-        if (typeof fields.id != 'undefined') {
-            const values = this.parseValues(fields);
-            console.log(values);
-            return this.newInstance(fields.id, values);
+        const data = this.parseJSON(json);
+        if (typeof data.id != 'undefined') {
+            const values = this.parseValues(data.values);
+            return this.newInstance(data.id, values, data.subcomponents);
         } else {
             return null;
         }
@@ -2280,6 +2297,7 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
                 }
             },
             onFailure: function(result) {
+                console.log(result);
                 console.error("A problem during loading components...");
             },
             onError: function(result) {
@@ -2503,55 +2521,134 @@ const Routes = {
         }
     }
 };
+var Languages = {
+    PL: {
+        id: 1,
+        code: "PL"
+    },
+    EN: {
+        id: 2,
+        code: "EN"
+    },
+    DE: {
+        id: 3,
+        code: "DE"
+    },
+    FR: {
+        id: 4,
+        code: "FR"
+    },
+    ES: {
+        id: 5,
+        code: "ES"
+    }
+};
+var ActiveLanguages = [
+    Languages.PL,
+    Languages.EN
+];
 const AppComponents = {};
 AppComponents.ModulesGroup = new Hawk.ComponentClass('modules-group', {
     name: ""
-}, {}, function(json) {
+}, {}, {}, function(json) {
     let result = [];
     return {
         id: json.id,
-        name: json.name
-    };
-});
-AppComponents.Module = new Hawk.ComponentClass('module', {
-    name: "",
-    elements: []
-}, {
-    methods: {
-        refreshElements: function(component) {
-            const elements = component.get('elements');
-            for (let i in elements) {
-                elements[i].refreshView();
-            }
-        }
-    }
-}, function(json) {
-    const elements = json.elements;
-    let result = [];
-    for (let i in elements) {
-        const element = AppComponents.Element.createFromJSON(elements[i]);
-        result[element.getID()] = element;
-    }
-    return {
-        id: json.id,
-        name: json.name,
-        elements: result
+        values: {
+            name: json.name
+        },
+        subcomponents: {}
     };
 });
 AppComponents.Element = new Hawk.ComponentClass('element', {
     name: "",
     code: ""
-}, {}, function(json) {
-    let result = [];
+}, {}, {}, function(json) {
     return {
         id: json.id,
-        name: json.name,
-        code: json.code
+        values: {
+            name: json.name,
+            code: json.code
+        },
+        subcomponents: {}
+    };
+});
+AppComponents.Attachment = new Hawk.ComponentClass('attachment', {
+    name: "",
+    code: ""
+}, {}, {}, function(json) {
+    return {
+        id: json.id,
+        values: {
+            name: json.name,
+            code: json.code
+        },
+        subcomponents: {}
+    };
+});
+AppComponents.Module = new Hawk.ComponentClass('module', {
+    name: ""
+}, {
+    elements: {},
+    attachments: {}
+}, {}, function(json) {
+    const elementsData = json.elements;
+    let elements = [];
+    for (let i in elementsData) {
+        const element = AppComponents.Element.createFromJSON(elementsData[i]);
+        elements[element.getID()] = element;
+    }
+    const attachmentsData = json.attachments;
+    let attachments = [];
+    for (let i in attachmentsData) {
+        const attachment = AppComponents.Attachment.createFromJSON(attachmentsData[i]);
+        attachments[attachment.getID()] = attachment;
+    }
+    return {
+        id: json.id,
+        values: {
+            name: json.name
+        },
+        subcomponents: {
+            elements: elements,
+            attachments: attachments
+        }
+    };
+});
+AppComponents.DefinedData = new Hawk.ComponentClass('defined-data', {
+    name: "",
+    code: "",
+    values: []
+}, {}, {
+    methods: {
+        placeLanguagesSubsets: function(component) {
+            let element;
+            const values = component.get('values');
+            let current;
+            console.log(values);
+            for (let language in ActiveLanguages) {
+                current = ActiveLanguages[language];
+                element = component.getElement('value-' + current.code);
+                console.log('value-' + current.code);
+                element.html(values[current.id]);
+            }
+        }
+    }
+}, function(json) {
+    return {
+        id: json.id,
+        values: {
+            name: json.name,
+            code: json.code,
+            values: json.values
+        },
+        subcomponents: {}
     };
 });
 const AppComponentManagers = {};
 AppComponentManagers.ModulesGroup = new Hawk.ComponentsManager(AppComponents.ModulesGroup, 'modules-group-components');
 AppComponentManagers.Module = new Hawk.ComponentsManager(AppComponents.Module, 'module-components');
+AppComponentManagers.DefinedData = new Hawk.ComponentsManager(AppComponents.DefinedData, 'defined-data-components');
 //const AppContentsManager = new Hawk.ContentsManager('site-content');
 //const AppAjaxRequestsController = new Hawk.AjaxRequestsController();
 //const AppPagesManager = new Hawk.PagesManager(Routes, 'site-content');

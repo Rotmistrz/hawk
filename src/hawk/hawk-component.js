@@ -1,10 +1,11 @@
 
-Hawk.Component = function(classname, values, options, id) {
+Hawk.Component = function(classname, values, subcomponents, options, id) {
     var that = this;
 
     this.classname = classname;
 
     this.values = values;
+    this.subcomponents = subcomponents;
     this.properties = options.properties || {};
     this.methods = options.methods || {};
     this.bindingsDeclarations = options.bindingsDeclarations || [];
@@ -32,17 +33,19 @@ Hawk.Component = function(classname, values, options, id) {
         return this;
     }
 
-    this.addSubitem = function(key, component) {
-        this.values[key][component.getID()] = component;
+    this.addSubcomponent = function(key, component) {
+        this.subcomponents[key][component.getID()] = component;
 
         this.refreshView();
     }
 
-    this.getSubitem = function(key, index) {
-        return this.values[key][index];
+    this.getSubcomponent = function(key, index) {
+        return this.subcomponents[key][index];
     }
 
-    this.placeSubitem = function(key, component, html) {
+    this.placeSubcomponent = function(key, component, html) {
+        this.subcomponents[key][component.getID()] = component;
+        
         const element = this.getElement(key);
 
         element.append(html);
@@ -105,6 +108,12 @@ Hawk.Component = function(classname, values, options, id) {
             element = this.getElement(i);
 
             element.html(this.getProperty(i));
+        }
+
+        for (var i in this.subcomponents) {
+            for (let j in this.subcomponents[i]) {
+                this.subcomponents[i][j].refreshView();
+            }
         }
 
         for (var i in this.methods) {

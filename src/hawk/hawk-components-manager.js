@@ -36,6 +36,8 @@ Hawk.ComponentsManager = function(classComponent, wrapperClass) {
                 }
             },
             onFailure: function(result) {
+                console.log(result);
+                
                 console.error("A problem during loading components...");
             },
             onError: function(result) {
