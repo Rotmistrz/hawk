@@ -34,7 +34,7 @@ Hawk.ComponentClass = function(classname, values, subcomponents, options, parseJ
                 certainValues = this.parseValues(values);
             }
 
-            if (typeof subcomponents != 'undefined') {
+            if (typeof subcomponents == 'undefined') {
                 subcomponents = this.subcomponents;
             }
             
@@ -49,6 +49,8 @@ Hawk.ComponentClass = function(classname, values, subcomponents, options, parseJ
         //     return null;
         // }
     }
+
+
 
     this.instanceExists = function(index) {
         return typeof this.instances[index] != 'undefined';
@@ -72,6 +74,14 @@ Hawk.ComponentClass = function(classname, values, subcomponents, options, parseJ
         } else {
             return null;
         }
+    }
+
+    this.getInstanceFromDOM = function(id) {
+        
+    }
+
+    this.getAllInstances = function() {
+        return this.instances;
     }
 
     this.removeInstance = function(index) {

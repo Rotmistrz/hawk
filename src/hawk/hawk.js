@@ -17,3 +17,13 @@ Hawk.RequestStatus = {
     ERROR: 1,
     EXCEPTION: 2
 };
+
+Hawk.anchorRegex = new RegExp("^[^\/]+$");
+
+Hawk.getPreparedHash = function(withoutLeadingHashSign) {
+    if (typeof withoutLeadingHashSign == 'undefined' || !withoutLeadingHashSign) {
+        return this.hash.replaceAll('/', '');
+    } else {
+        return this.hash.substring(1).replaceAll('/', '');
+    }
+}

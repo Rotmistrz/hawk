@@ -12,6 +12,8 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
 
     this.bindings = {};
 
+    this.rawBatchUpdate = options.batchUpdate || function(component, data) {};
+
     this.id = id || -1;
 
     this.onRefresh = options.onRefresh || function() {};
@@ -43,20 +45,36 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
         return this.subcomponents[key][index];
     }
 
+    this.getAllSubcomponents = function(key) {
+        return this.subcomponents[key];
+    }
+
     this.placeSubcomponent = function(key, component, html) {
+        if (typeof this.subcomponents[key] == 'undefined') {
+            this.subcomponents[key] = [];
+        }
+        
         this.subcomponents[key][component.getID()] = component;
         
         const element = this.getElement(key);
 
         element.append(html);
 
-        this.refreshView();
+        component.refreshView();
 
         return this;
     }
 
     this.get = function(key) {
         return this.values[key];
+    }
+
+    this.batchUpdate = function(data) {
+        this.rawBatchUpdate(this, data);
+
+        this.refreshView();
+
+        this.onRefresh("all", "all", this);
     }
 
     this.update = function(key, value) {
@@ -84,7 +102,7 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
     }
 
     this.getContainer = function() {
-        if (this.id > 0) {
+        if (this.id > -1) {
             return $('.' + this.getClassname() + '[data-component-id="' + this.getID() + '"]');
         } else {
             return $('.' + this.getClassname());
@@ -96,7 +114,11 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
     }
 
     this.refreshView = function() {
-        var element;
+        var element = this.getElement("id");
+
+        element.html(this.getID());
+
+        //console.log("ID", this.getID());
 
         for (var i in this.values) {
             element = this.getElement(i);
@@ -110,11 +132,18 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
             element.html(this.getProperty(i));
         }
 
-        for (var i in this.subcomponents) {
-            for (let j in this.subcomponents[i]) {
-                this.subcomponents[i][j].refreshView();
-            }
-        }
+        // for (var i in this.subcomponents) {
+
+        //     for (let j in this.subcomponents[i]) {
+        //         if (Array.isArray(this.subcomponents[i][j])) {
+        //             for (let k in this.subcomponents[i][j]) {
+        //                 this.subcomponents[i][j][k].refreshView();
+        //             }
+        //         } else {
+        //             this.subcomponents[i][j].refreshView();
+        //         }
+        //     }
+        // }
 
         for (var i in this.methods) {
             this.methods[i](this);

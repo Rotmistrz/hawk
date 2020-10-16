@@ -123,6 +123,78 @@ Hawk.mergeWholeObjects = function(mainObject, object) {
     return result;
 }
 
+Hawk.addZeros = function (number, digits) {
+    number = number + "";
+
+    for (var i = 1; i <= digits; i++) {
+        if (number.length < digits) {
+            number = "0" + number;
+        }
+    }
+
+    return number;
+}
+
+Hawk.TextManager = {};
+Hawk.TextManager.makeLine = function(text) {
+    return "<span class=\"line\">" + text + "</span>";
+}
+Hawk.TextManager.findWordEnd = function(text, index, backwards) {
+    if (typeof backwards == 'undefined') {
+        backwards = false;
+    }
+
+    if (backwards) {
+        var spaceIndex = text.lastIndexOf(" ", index);
+    } else {
+        var spaceIndex = text.indexOf(" ", index);
+    }
+
+    if (spaceIndex < 0) {
+        return text.length;
+    } else {
+        return spaceIndex;
+    }
+}
+Hawk.TextManager.findLine = function(text, start, end) {
+    return text.substring(start, end);
+}
+Hawk.TextManager.makeLines = function(text, lines, backwards) {
+    if (typeof offset == 'undefined') {
+        offset = false;
+    }
+
+    text = text.trim();
+    var lineLength = text.length / lines;
+    var result = "";
+    var breakPosition = 0;
+    var start = 0;
+    var line = "";
+
+    var i = 1;
+
+    if (text.length > 0) {
+        while (i < lines + 1) {
+            breakPosition = Hawk.TextManager.findWordEnd(text, lineLength * i, (i == 1 && backwards));
+            line = Hawk.TextManager.findLine(text, start, breakPosition);
+
+            //console.log(text);
+            //console.log(i, line);
+
+            if (line.length > 0) {
+                result += Hawk.TextManager.makeLine(line);
+                start = breakPosition + 1;
+
+                i++;
+            } else {
+                return Hawk.TextManager.makeLines(text, lines, true)
+            }
+        }
+    }
+
+    return result;
+}
+
 Hawk.scrollToElement = function(options) {
     var defaultOptions = {
         container: window,
@@ -140,6 +212,66 @@ Hawk.scrollToElement = function(options) {
     }, options.delay);
 
     return this;
+}
+
+Hawk.AnchorsManager = function(options) {
+    var that = this;
+
+    this.defaultOptions = {
+        delay: 100,
+        menu: undefined
+    }
+
+    this.options = Hawk.mergeObjects(this.defaultOptions, options);
+
+    this.anchorsCallback = function(e) {
+        var regex = /#{1}.+$/;
+        var link = this;
+
+        var href = $(this).attr('href');
+        var anchor;
+        var extraDelay = 0;
+
+        if (anchor = regex.exec(href)) {
+            if ($(anchor + Hawk.anchorSufix).length) {
+                e.preventDefault();
+
+                if (typeof that.options.menu !== 'undefined' && $(link).parents().is(that.options.menu.menu)) {
+                    extraDelay = that.options.menu.totalDuration();
+
+                    that.options.menu.hide();   
+                }
+
+                var finalDelay = that.options.delay + extraDelay;
+
+                var callback = function() {
+
+                }
+
+                if (typeof $(link).attr('data-anchor-type') == 'undefined' || $(link).attr('data-anchor-type') != 'blank') {
+                    callback = function() {
+                        window.location.hash = anchor;
+                    }
+                }
+
+                Hawk.scrollToElement({ anchor: anchor + Hawk.anchorSufix, callback: callback, delay: finalDelay });
+            }
+        }
+    };
+
+    this.goTo = function(anchor) {
+        Hawk.scrollToElement({ anchor: anchor + Hawk.anchorSufix });
+    }
+
+    this.refresh = function() {
+        $('a').unbind('click', this.anchorsCallback).click(this.anchorsCallback);
+
+        return this;
+    }
+
+    this.run = function() {
+        this.refresh();
+    }
 }
 
 Hawk.DropdownConstants = {
@@ -163,6 +295,8 @@ Hawk.Dropdown = function(container, options) {
     this.title;
     this.list;
     this.listContainer;
+
+    this.anotherBackElement;
 
     this.fields;
 
@@ -296,6 +430,18 @@ Hawk.Dropdown = function(container, options) {
         return this.fields.filter(':checked');
     }
 
+    this.setBackElement = function(element) {
+        this.anotherBackElement = element;
+
+        this.anotherBackElement.click(function() {
+            if (that.isOpen()) {
+                that.hide();
+            }
+        });
+
+        return this;
+    }
+
     this.select = function(field) {
         if (!field.prop('checked')) {
             field.prop('checked', true);
@@ -383,6 +529,12 @@ Hawk.Dropdown = function(container, options) {
                     that.options.onRadioSelected(that, $(this));
                 }
             });
+
+            var selected = this.fields.filter("[selected=\"selected\"]");
+
+            if (selected.length > 0) {
+                this.select(selected);
+            }
         }
 
         return this;
@@ -433,6 +585,7 @@ Hawk.AjaxOverlayerManager = function(id, options) {
 
         onShow: function(overlayerManager) {},
         onHide: function(overlayerManager) {},
+        onPrepareLoading: function(id, bundle) { return bundle; },
         onLoad: function(overlayerManager, id) {},
         onInitialize: function(overlayerManager, hash) {
             var pattern = /[0-9]+\/[0-9]+\/([a-zA-Z0-9\-]+)/
@@ -450,10 +603,14 @@ Hawk.AjaxOverlayerManager = function(id, options) {
         },
         createAnchor: function(overlayerManager, id, hash) {
             return overlayerManager.getId() + "/" + id + "/" + hash;
-        }
+        },
+
+        defaultRegex: new RegExp("o\/[0-9]\/([a-zA-Z0-9\-]+)+")
     }
 
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
+
+    this.defaultRegex = this.options.defaultRegex;
 
     this.popstateDefaultCallback = function() {
         that.hide();
@@ -607,6 +764,8 @@ Hawk.AjaxOverlayerManager = function(id, options) {
             bundle = {};
         }
 
+        bundle = this.options.onPrepareLoading(id, bundle);
+
         this.ajaxRequest = $.ajax({
             type: "POST",
             url: that.options.ajaxFilePath,
@@ -615,7 +774,7 @@ Hawk.AjaxOverlayerManager = function(id, options) {
             success: function(result) {
                 console.log(result);
 
-                if (result.error > 0) {
+                if (!result.success) {
                     if (typeof result.message != 'undefined') {
                         noticeManager.error("Error", result.message);
 
@@ -625,7 +784,17 @@ Hawk.AjaxOverlayerManager = function(id, options) {
                     return;
                 }
 
-                that.changeContent(result.html, callback);
+                var finalCallback;
+
+                if (typeof callback == 'function') {
+                    finalCallback = function() {
+                        callback(result);
+                    };
+                } else {
+                    finalCallback = function() {};
+                }
+
+                that.changeContent(result.html, finalCallback);
 
                 that.changeHash(id, result.anchor);
 
@@ -735,7 +904,7 @@ Hawk.AjaxOverlayerManager = function(id, options) {
 Hawk.AjaxOverlayerManager.prototype.initializeClosePreventer = function() {
     var that = this;
 
-    this.container.on('click', '.' + that.options.innerClass + ', .' + that.options.innerClass + ' :not(.' + that.options.closeButtonClass + ', .' + that.options.closeButtonClass + ' *)', function(e) {
+    this.container.on('click', '.' + that.options.innerClass + ', .' + that.options.innerClass + ' :not(.' + that.options.closeButtonClass + ', .' + that.options.closeButtonClass + ' *, .tox, .tox *)', function(e) {
         e.stopPropagation();
 
         return;
@@ -799,21 +968,27 @@ Hawk.PopUp.prototype.changeHash = function(id, anchor) {
 
 Hawk.NoticeManager = function() {
     this.popup = new Hawk.PopUp('notice-popup', {
-        loadActionName: 'load-popup',
-        ajaxFilePath: '/ajax/request/notice',
+        ajaxFilePath: '/overlayer/ajax/notice'
     });
     this.popup.run();
 
-    this.success = function(title, content) {
+    this.success = function(content) {
         this.popup.loadContent('success', {
-            title: title,
+            title: "Sukces",
             content: content
         });
     }
 
-    this.error = function(title, content) {
+    this.error = function(content) {
         this.popup.loadContent('error', {
-            title: title,
+            title: "Błąd",
+            content: content
+        });
+    }
+
+    this.info = function(content) {
+        this.popup.loadContent('info', {
+            title: "Informacja",
             content: content
         });
     }
@@ -821,9 +996,10 @@ Hawk.NoticeManager = function() {
 
 var noticeManager = new Hawk.NoticeManager();
 
-Hawk.AjaxRequestManager = function(path, options) {
+Hawk.AjaxRequestManager = function(id, path, options) {
     var that = this;
 
+    this.id = id;
     this.path = path;
 
     this.requestLinks;
@@ -844,6 +1020,10 @@ Hawk.AjaxRequestManager = function(path, options) {
 
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
 
+    this.getID = function() {
+        return this.id;
+    }
+
     this.registerOperation = function(name, operation) {
         this.operations[name] = operation;
 
@@ -853,10 +1033,10 @@ Hawk.AjaxRequestManager = function(path, options) {
     this.sendSimpleRequest = function(operation, element) {
         var data = that.collectData(operation, element);
 
-        return that.sendRequest({ operation: operation }, { bundle: data });
+        return that.sendRequest(operation, { bundle: data });
     }
 
-    this.sendRequest = function(generalData, moduleData) {
+    this.sendRequest = function(operation, data) {
         if (this.ajaxRequestWorking) {
             //console.log("The request is already been doing!");
 
@@ -867,9 +1047,12 @@ Hawk.AjaxRequestManager = function(path, options) {
 
         var that = this;
 
-        var data = Hawk.mergeWholeObjects(generalData, moduleData);
+        data.operation = operation;
 
         this.spinner.show();
+
+        console.log("DATA");
+        console.log(data);
 
         this.ajaxRequest = $.ajax({
             type: "POST",
@@ -879,11 +1062,11 @@ Hawk.AjaxRequestManager = function(path, options) {
             success: function(result) {
                 console.log(result);
 
-                if (typeof result.error != 'undefined') {
-                    if (!result.error) {
+                if (typeof result.success != 'undefined') {
+                    if (result.success) {
                         that.operations[result.operation].callback(result);
                     } else {
-                        noticeManager.error("Error", result.message);
+                        that.operations[result.operation].callback(result);
                     }
                 } else {
                     noticeManager.error("Error", "There occured technical error. Try again later.");
@@ -920,11 +1103,11 @@ Hawk.AjaxRequestManager = function(path, options) {
     this.refreshDependencies = function() {
         var that = this;
 
-        this.requestLinks = $('.ajax-request-button');
+        
+    }
 
-        this.spinner = $('.' + this.options.spinnerClass);
-
-        this.requestLinks.unbind('click').click(function(e) {
+    this.run = function() {
+        $('body').on('click', '.ajax-request-button[data-manager-id="' + this.getID() + '"]', function(e) {
             e.preventDefault();
             e.stopPropagation();
 
@@ -932,20 +1115,20 @@ Hawk.AjaxRequestManager = function(path, options) {
 
             that.spinner = $(this).parent().find('.ajax-request-spinner');
 
-            var data = that.collectData(operation, $(this));
+            var bundle = {};
 
-            that.sendRequest({ operation: operation }, { bundle: data });
+            if (typeof $(this).attr('data-bundle') != 'undefined') {
+                bundle = Hawk.createBundleFromString($(this).attr('data-bundle'));
+            }
+
+            that.sendRequest(operation, { bundle: bundle });
         });
-    }
-
-    this.run = function() {
-        this.refreshDependencies();
     }
 }
 
-var ajaxRequestManager = new Hawk.AjaxRequestManager("/ajax/request", {
+var ajaxRequestManager = new Hawk.AjaxRequestManager(1, "/ajax/request", {
     onError: function() {
-        noticeManager.error("Error", "There occured some technical error.");
+        noticeManager.error("There occured some technical error.");
     }
 });
 ajaxRequestManager.run();
@@ -2002,6 +2185,9 @@ Hawk.FormSender = function(id, fields, options) {
 
         ajaxPath: '/ajax.php',
         extraData: {},
+
+        autoDisable: true,
+
         incorrectFieldClass: 'error',
         button: that.form.find('button[type="submit"]'),
         cancelButton: that.form.find('button.form__cancel'),
@@ -2009,6 +2195,11 @@ Hawk.FormSender = function(id, fields, options) {
         infoWrapperClass: 'form__info-wrapper',
         infoClass: 'form__info',
         spinnerClass: 'form__spinner',
+
+        sendingGate: function() {
+            return true;
+        },
+
         onCorrect: function(result) {
             that.changeMessage(result.message);
         },
@@ -2195,9 +2386,12 @@ Hawk.FormSender = function(id, fields, options) {
                     if (result.status == Hawk.RequestStatus.SUCCESS) {
                         that.clear();
 
-                        that.hideButton();
+                        if (that.options.autoDisable) {
+                            that.hideButton();
 
-                        that.disable();
+                            that.disable();
+                        }
+                        
 
                         if (typeof that.options.onCorrect == 'function') {
                             that.options.onCorrect(result);
@@ -2264,11 +2458,236 @@ Hawk.FormSender = function(id, fields, options) {
         this.form.submit(function(e) {
             e.preventDefault();
 
-            that.send();
+            if (that.options.sendingGate()) {
+                that.send();
+            }
         });
 
         this.cancelButton.click(function() {
             that.clearFields();
+        });
+    }
+}
+
+Hawk.Fields = {};
+
+Hawk.Fields.Field = function(name, types, required) {
+    if (typeof required == 'undefined') {
+        required = false;
+    }
+
+    return new Hawk.FormField(name, Hawk.formFieldTypes.FILE, function(field) {
+        var parent = field.parents('.file-form-field');
+
+        var fieldWrapper = parent.find('.simple-form-field');
+
+        return fieldWrapper;
+    }, required, function(field, wrapper) {
+        var val;
+
+        var rawField = field.get(0);
+
+        if(field.val().length > 0) {
+            val = field.val();
+        } else {
+            val = field.attr('placeholder');
+
+            wrapper.removeClass('filled');
+
+            return false;
+        }
+
+        val = val.replace('fakepath\\', '');
+
+        if (val.length > 26) {
+            val = val.slice(-26);
+            val = "..." + val;
+        }
+
+        wrapper.addClass('filled');
+
+        wrapper.find('.simple-form-field__core').html(val);
+
+        wrapper.removeClass('error');
+
+        if(field.val().length > 0) {
+            var fileType = field.get(0).files[0].type.valueOf();
+
+            if(Hawk.isInObject(fileType, types)) {
+                wrapper.removeClass('error');
+
+                return true;
+            } else {
+                wrapper.addClass('error');
+
+                return false;
+            }
+        } else {
+            rawField.value = '';
+
+            if(!/safari/i.test(navigator.userAgent)){
+                rawField.type = ''
+                rawField.type = 'file'
+            }
+
+            return false;
+        }
+    });
+};
+
+Hawk.FormPreparer = function(id, options) {
+    var that = this;
+
+    this.id = id;
+
+    this.rawForm = document.getElementById(this.id);
+    this.form = $(this.rawForm);
+
+    this.fields = {};
+
+    this.disabled = false;
+
+    this.defaultOptions = {
+        buttonDisabledClass: 'button--disabled',
+
+        onChange: function() {
+
+        }
+    };
+
+    this.options = Hawk.mergeObjects(this.defaultOptions, options);
+
+    this.getButton = function() {
+        return this.form.find('button[type="submit"]');
+    }
+
+    this.isDisabled = function() {
+        return this.disabled;
+    }
+
+    this.disable = function() {
+        this.form.attr('disabled', 'disabled');
+
+        this.disabled = true;
+
+        this.getButton().addClass(this.options.buttonDisabledClass);
+    }
+
+    this.enable = function() {
+        this.form.removeAttr('disabled');
+
+        this.disabled = false;
+    
+        this.getButton().removeClass(this.options.buttonDisabledClass);
+    }
+
+    this.run = function() {
+        this.form.submit(function(e) {
+            if (that.isDisabled()) {
+                e.preventDefault();
+            }
+        });
+
+        this.fields = this.form.find('input');
+
+        this.fields.keydown(function(e) {
+            if (e.key.length > 1 && e.key != "Backspace") {
+                return;
+            }
+
+            var thisthat = this;
+
+            setTimeout(function() {
+                if (typeof $(thisthat).attr('data-current-value') != 'undefined' && $(thisthat).val() != $(thisthat).attr('data-current-value')) {
+                    that.enable();
+                } else {
+                    that.disable();
+                }
+
+                that.options.onChange();
+            }, 10);
+        });
+
+        this.disable();
+    }
+}
+
+Hawk.Confirmation = function(overlayerID, overlayerPath, options) {
+    var that = this;
+
+    this.overlayerID = overlayerID;
+    this.overlayerPath = overlayerPath;
+
+    this.formID = options.formID || "form-confirmation";
+    this.linkClass = options.linkClass || "confirmation-request-button";
+
+    this.form;
+
+    this.requests = {};
+
+    this.getOverlayerID = function() {
+        return this.overlayerID;
+    }
+
+    this.getOverlayerPath = function() {
+        return this.overlayerPath;
+    }
+
+    this.getFormID = function() {
+        return this.formID;
+    }
+
+    this.getLinkClass = function() {
+        return this.linkClass;
+    }
+
+    this.registerRequest = function(id, path, onConfirm) {
+        this.requests[id] = {
+            id: id,
+            path: path,
+            onConfirm: onConfirm
+        };
+
+        return this;
+    }
+
+    this.open = function(id, path, data, onConfirm) {
+        this.overlayer.loadContent(id, data, function(result) {
+            that.form = new Hawk.FormSender(that.getFormID(), [], {
+                ajaxPath: path,
+                onCorrect: function(result) {
+                    onConfirm(result);
+
+                    that.hide();
+                }
+            });
+            that.form.run();
+        });
+    }
+
+    this.hide = function() {
+        this.overlayer.hide();
+    }
+
+    this.getRequestParams = function(id) {
+        return this.requests[id];
+    }
+
+    this.run = function() {
+        this.overlayer = new Hawk.AjaxOverlayerManager(this.getOverlayerID(), {
+            ajaxFilePath: this.getOverlayerPath()
+        });
+        this.overlayer.run();
+
+        $('body').on('click', '.' + this.getLinkClass(), function(e) {
+            e.preventDefault();
+            
+            const id = $(this).attr('data-id');
+            const bundle = Hawk.createBundleFromString($(this).attr('data-bundle'));
+
+            const requestParams = that.getRequestParams(id);
+
+            that.open(id, requestParams.path, bundle, requestParams.onConfirm);
         });
     }
 }
@@ -2285,13 +2704,13 @@ Hawk.getPath = function() {
 Hawk.checkRoute = function(route, path) {
     const pathParts = path.split('/');
 
-    console.log(pathParts);
+    //console.log(pathParts);
 
-    console.log(route.toString().replace("\\", ""));
+    //console.log(route.toString().replace("\\", ""));
 
     const routeParts = route.toString().replace("\\", "").split('/');
 
-    console.log(routeParts);
+    //console.log(routeParts);
 
     let regex;
 
@@ -2303,14 +2722,14 @@ Hawk.checkRoute = function(route, path) {
                 regex = new RegExp(routeParts[i]);
 
                 if (!regex.test(pathParts[i])) {
-                    console.log("FALSEEEEEE");
+                    //console.log("FALSEEEEEE");
 
                     return false;
                 }
 
-                console.log("Póki co git");
+                ///console.log("Póki co git");
             } else {
-                console.log("FALSE");
+                //console.log("FALSE");
 
                 return false; 
             }
@@ -2369,7 +2788,7 @@ Hawk.Routes = {
     pathRegexp: new RegExp(this.path),
 
     getPath: function() {
-        console.log("GET PATH", window.location.pathname);
+        //console.log("GET PATH", window.location.pathname);
 
         return window.location.pathname;
     },
@@ -2454,7 +2873,7 @@ Hawk.run = function() {
         duration: 1000
     });
 
-    if(this.hash.length != 0) {
+    if(this.hash.length != 0 && this.anchorRegex.test(this.hash)) {
         this.scrollToElement({ anchor: this.hash + this.anchorSufix, delay: 200 });
     }
 

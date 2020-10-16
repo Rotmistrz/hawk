@@ -13,7 +13,8 @@ Hawk.AjaxRequestsManager = function(options) {
     this.defaultOptions = {
         onSuccess: function() {},
         onError: function() {},
-        onFailure: function() {}
+        onFailure: function() {},
+        onComplete: function() {}
     };
 
     this.options = Hawk.mergeObjects(this.defaultOptions, options);
@@ -33,9 +34,10 @@ Hawk.AjaxRequestsManager = function(options) {
 
         this.ajaxRequestWorking = true;
 
-        const onSuccess = callbacks.onSuccess || function() {};
+        const onSuccess = callbacks.onSuccess || this.options.onSuccess;
         const onFailure = callbacks.onFailure || this.options.onFailure;
         const onError = callbacks.onError || this.options.onError;
+        const onComplete = callbacks.onComplete || this.options.onComplete;
 
         this.ajaxRequest = $.ajax({
             type: type,
@@ -56,10 +58,12 @@ Hawk.AjaxRequestsManager = function(options) {
             error: function(jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR.responseText);
 
-                that.options.onError();
+                onError();
             },
             complete: function() {
                 that.ajaxRequestWorking = false;
+
+                onComplete();
             }
         });
 
