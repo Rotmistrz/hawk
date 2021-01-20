@@ -15,7 +15,7 @@ Hawk.RequestStatus = {
 };
 Hawk.anchorRegex = new RegExp("^[^\/]+$");
 Hawk.getPreparedHash = function(withoutLeadingHashSign) {
-    if (typeof withLeadingHashSign == 'undefined' || !withLeadingHashSign) {
+    if (typeof withoutLeadingHashSign == 'undefined' || !withoutLeadingHashSign) {
         return this.hash.replaceAll('/', '');
     } else {
         return this.hash.substring(1).replaceAll('/', '');
@@ -2369,11 +2369,7 @@ Hawk.Component = function(classname, values, subcomponents, options, id) {
         }
         // for (var i in this.subcomponents) {
         //     for (let j in this.subcomponents[i]) {
-        //         if (Array.isArray(this.subcomponents[i][j])) {
-        //             for (let k in this.subcomponents[i][j]) {
-        //                 this.subcomponents[i][j][k].refreshView();
-        //             }
-        //         } else {
+        //         if (this.subcomponents[i][j].hasOwnProperty('refreshView')) {
         //             this.subcomponents[i][j].refreshView();
         //         }
         //     }
